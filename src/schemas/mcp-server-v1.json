@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AgentSrc MCP server v1",
+  "type": "object",
+  "required": ["name", "transport"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "name": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+    "enabled": { "type": "boolean" },
+    "timeoutMs": { "type": "integer", "minimum": 1 },
+    "transport": { "oneOf": [{ "required": ["type", "command"], "properties": { "type": { "const": "stdio" }, "command": { "type": "string" } } }, { "required": ["type", "url"], "properties": { "type": { "const": "http" }, "url": { "type": "string", "format": "uri" } } }] }
+  },
+  "additionalProperties": false
+}

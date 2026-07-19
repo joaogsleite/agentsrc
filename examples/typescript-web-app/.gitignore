@@ -1,0 +1,11 @@
+# BEGIN agentsrc generated
+.agents/state/
+.claude/
+.codex/
+.gemini/
+.opencode/
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+opencode.json
+# END agentsrc generated

@@ -1,0 +1,6 @@
+{
+  "$schema": "https://raw.githubusercontent.com/joaogsleite/agentsrc/main/src/schemas/module-v1.json",
+  "name": "memory-system",
+  "description": "Persistent project memory workflows.",
+  "dependencies": []
+}

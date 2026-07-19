@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AgentSrc module v1",
+  "type": "object",
+  "required": ["name", "description", "dependencies"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "name": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+    "description": { "type": "string" },
+    "dependencies": { "type": "array", "items": { "type": "string", "pattern": "^[a-z0-9-]+$" } }
+  },
+  "additionalProperties": false
+}

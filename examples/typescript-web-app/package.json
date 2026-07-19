@@ -1,0 +1,5 @@
+{
+  "name": "example-web-app",
+  "private": true,
+  "scripts": { "test": "echo example" }
+}

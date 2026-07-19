@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AgentSrc project manifest v1",
+  "type": "object",
+  "required": ["formatVersion", "targets", "modules"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "formatVersion": { "const": 1 },
+    "targets": { "type": "array", "items": { "enum": ["agents-md", "claude", "codex", "gemini", "opencode"] } },
+    "modules": { "type": "array" }
+  },
+  "additionalProperties": false
+}
