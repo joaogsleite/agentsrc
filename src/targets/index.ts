@@ -3,13 +3,18 @@ import path from "node:path"
 import { fail } from "../errors.ts"
 import { renderInstructions } from "../core/discovery.ts"
 import { copyTree, exists } from "../core/fs.ts"
-import type { CanonicalProject, McpServer, TargetName } from "../types.ts"
+import type { CanonicalProject, TargetName } from "../types.ts"
+import { claudeAdapter } from "./claude/adapter.ts"
+import { codexAdapter } from "./codex/adapter.ts"
+import { geminiAdapter } from "./gemini/adapter.ts"
+import { opencodeAdapter } from "./opencode/adapter.ts"
+import type { RenderedFile, TargetAdapter, TargetPlan } from "./types.ts"
 
-function mcpConfig(mcps: McpServer[]) {
-  return Object.fromEntries(mcps.filter((mcp) => mcp.enabled !== false).map((mcp) => [mcp.name, mcp.transport.type === "stdio"
-    ? { command: mcp.transport.command, args: mcp.transport.args ?? [], env: Object.fromEntries((mcp.transport.env ?? []).map((key) => [key, `{env:${key}}`])), cwd: mcp.transport.cwd, timeout: mcp.timeoutMs }
-    : { type: "http", url: mcp.transport.url, headers: Object.fromEntries(Object.entries(mcp.transport.headers ?? {}).map(([key, env]) => [key, `{env:${env}}`])), timeout: mcp.timeoutMs },
-  ]))
+export const adapters: Record<TargetName, TargetAdapter> = {
+  claude: claudeAdapter,
+  codex: codexAdapter,
+  gemini: geminiAdapter,
+  opencode: opencodeAdapter,
 }
 
 async function write(file: string, content: string | object) {
@@ -18,25 +23,45 @@ async function write(file: string, content: string | object) {
   return result instanceof Error ? result : null
 }
 
-async function copyCanonical(root: string, stage: string, project: CanonicalProject, folders: string[]) {
-  for (const folder of folders) {
-    const from = path.join(root, ".agents", folder)
-    if (!(await exists(from))) continue
-    const copied = await copyTree(from, path.join(stage, folder))
-    if (copied instanceof Error) return copied
+async function materialize(root: string, stage: string, plan: TargetPlan, files: RenderedFile[]) {
+  for (const output of plan.outputs) {
+    if (path.extname(output)) continue
+    const result = await fs.mkdir(path.join(stage, output), { recursive: true }).catch((cause) => fail(`Cannot create ${output}`, cause))
+    if (result instanceof Error) return result
+  }
+  for (const copy of plan.copies) {
+    const source = path.join(root, ".agents", copy.from)
+    if (!(await exists(source))) continue
+    const result = await copyTree(source, path.join(stage, copy.to))
+    if (result instanceof Error) return result
+  }
+  for (const file of files) {
+    const result = await write(path.join(stage, file.path), file.content)
+    if (result instanceof Error) return result
   }
   return null
 }
 
-async function treeSnapshot(root: string): Promise<Map<string, Buffer> | Error> {
+async function treeSnapshot(root: string): Promise<Map<string, string> | Error> {
   const entries = await fs.readdir(root, { recursive: true, withFileTypes: true }).catch((cause) => fail(`Cannot read ${root}`, cause))
   if (entries instanceof Error) return entries
-  const files = entries.filter((entry) => entry.isFile()).map((entry) => path.join(entry.parentPath, entry.name))
-  const snapshot = new Map<string, Buffer>()
-  for (const file of files) {
+  const snapshot = new Map<string, string>()
+  for (const entry of entries) {
+    const file = path.join(entry.parentPath, entry.name)
+    const relative = path.relative(root, file)
+    const stat = await fs.lstat(file).catch((cause) => fail(`Cannot inspect ${file}`, cause))
+    if (stat instanceof Error) return stat
+    if (stat.isDirectory()) { snapshot.set(relative, "directory"); continue }
+    if (stat.isSymbolicLink()) {
+      const link = await fs.readlink(file).catch((cause) => fail(`Cannot read link ${file}`, cause))
+      if (link instanceof Error) return link
+      snapshot.set(relative, `symlink:${link}`)
+      continue
+    }
+    if (!stat.isFile()) return fail(`Unsupported generated output entry ${relative}`)
     const content = await fs.readFile(file).catch((cause) => fail(`Cannot read ${file}`, cause))
     if (content instanceof Error) return content
-    snapshot.set(path.relative(root, file), content)
+    snapshot.set(relative, `file:${content.toString("base64")}`)
   }
   return snapshot
 }
@@ -52,68 +77,24 @@ async function matches(expected: string, actual: string) {
   const [expectedTree, actualTree] = await Promise.all([treeSnapshot(expected), treeSnapshot(actual)])
   if (expectedTree instanceof Error || actualTree instanceof Error) return false
   if (expectedTree.size !== actualTree.size) return false
-  for (const [file, content] of expectedTree) if (!actualTree.get(file)?.equals(content)) return false
+  for (const [file, content] of expectedTree) if (actualTree.get(file) !== content) return false
   return true
 }
 
-export interface TargetRenderer { name: TargetName; output: string[]; render(root: string, stage: string, project: CanonicalProject): Promise<null | Error> }
-
-const agentsMd: TargetRenderer = {
-  name: "agents-md", output: ["AGENTS.md"],
-  async render(_root, stage, project) { return await write(path.join(stage, "AGENTS.md"), renderInstructions(project)) },
-}
-const claude: TargetRenderer = {
-  name: "claude", output: [".claude", "CLAUDE.md"],
-  async render(root, stage, project) {
-    const content = await write(path.join(stage, "CLAUDE.md"), renderInstructions(project)); if (content instanceof Error) return content
-    const copied = await copyCanonical(root, path.join(stage, ".claude"), project, ["agents", "commands", "skills"]); if (copied instanceof Error) return copied
-    return await write(path.join(stage, ".claude", "mcp.json"), { mcpServers: mcpConfig(project.mcps) })
-  },
-}
-const codex: TargetRenderer = {
-  name: "codex", output: [".codex"],
-  async render(root, stage, project) {
-    const copied = await copyCanonical(root, path.join(stage, ".codex"), project, ["agents", "commands", "skills"]); if (copied instanceof Error) return copied
-    const instructions = await write(path.join(stage, ".codex", "AGENTS.md"), renderInstructions(project)); if (instructions instanceof Error) return instructions
-    return await write(path.join(stage, ".codex", "config.json"), { mcpServers: mcpConfig(project.mcps) })
-  },
-}
-const gemini: TargetRenderer = {
-  name: "gemini", output: [".gemini", "GEMINI.md"],
-  async render(root, stage, project) {
-    const content = await write(path.join(stage, "GEMINI.md"), renderInstructions(project)); if (content instanceof Error) return content
-    const copied = await copyCanonical(root, path.join(stage, ".gemini"), project, ["agents", "commands", "skills"]); if (copied instanceof Error) return copied
-    return await write(path.join(stage, ".gemini", "settings.json"), { mcpServers: mcpConfig(project.mcps) })
-  },
-}
-const opencode: TargetRenderer = {
-  name: "opencode", output: [".opencode", "opencode.json"],
-  async render(root, stage, project) {
-    const created = await fs.mkdir(path.join(stage, ".opencode"), { recursive: true }).catch((cause) => fail("Cannot create OpenCode output", cause))
-    if (created instanceof Error) return created
-    const copied = await copyCanonical(root, path.join(stage, ".opencode"), project, ["agents", "commands", "skills"]); if (copied instanceof Error) return copied
-    const config = { instructions: [".agents/rules/**/*.md", ".agents/memories/**/*.md"], mcp: mcpConfig(project.mcps) }
-    return await write(path.join(stage, "opencode.json"), config)
-  },
-}
-export const adapters: Record<TargetName, TargetRenderer> = { "agents-md": agentsMd, claude, codex, gemini, opencode }
-
-async function renderTarget(root: string, target: TargetRenderer, project: CanonicalProject, check: boolean) {
-  const temporary = path.join(root, `.agentsrc-render-${target.name}-${process.pid}`)
+async function renderPlan(root: string, name: string, plan: TargetPlan, files: RenderedFile[], check: boolean) {
+  const temporary = path.join(root, `.agentsrc-render-${name}-${process.pid}`)
   await fs.rm(temporary, { recursive: true, force: true })
-  const rendered = await target.render(root, temporary, project)
+  const rendered = await materialize(root, temporary, plan, files)
   if (rendered instanceof Error) return rendered
   if (check) {
-    for (const output of target.output) {
-      const expected = path.join(temporary, output)
-      const actual = path.join(root, output)
-      const same = await fs.stat(expected).then(() => fs.stat(actual)).then(async () => await matches(expected, actual)).catch(() => false)
+    for (const output of plan.outputs) {
+      const same = await matches(path.join(temporary, output), path.join(root, output))
       if (!same) { await fs.rm(temporary, { recursive: true, force: true }); return fail(`Generated ${output} is missing or out of date`) }
     }
     await fs.rm(temporary, { recursive: true, force: true })
     return null
   }
-  for (const output of target.output) {
+  for (const output of plan.outputs) {
     const source = path.join(temporary, output)
     const destination = path.join(root, output)
     await fs.rm(destination, { recursive: true, force: true })
@@ -124,7 +105,15 @@ async function renderTarget(root: string, target: TargetRenderer, project: Canon
   return null
 }
 
+async function renderTarget(root: string, adapter: TargetAdapter, project: CanonicalProject, check: boolean) {
+  const diagnostics = adapter.validate(project)
+  if (diagnostics.errors.length) return fail(diagnostics.errors.join("\n"))
+  return await renderPlan(root, adapter.name, adapter.plan(project), adapter.render(project), check)
+}
+
 export async function generateTargets(root: string, targets: TargetName[], project: CanonicalProject, check: boolean) {
+  const base = await renderPlan(root, "agents", { outputs: ["AGENTS.md"], copies: [] }, [{ path: "AGENTS.md", content: renderInstructions(project) }], check)
+  if (base instanceof Error) return base
   for (const target of targets) {
     const result = await renderTarget(root, adapters[target], project, check)
     if (result instanceof Error) return result

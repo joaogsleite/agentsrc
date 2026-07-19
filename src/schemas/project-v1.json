@@ -6,7 +6,7 @@
   "properties": {
     "$schema": { "type": "string" },
     "formatVersion": { "const": 1 },
-    "targets": { "type": "array", "items": { "enum": ["agents-md", "claude", "codex", "gemini", "opencode"] } },
+    "targets": { "type": "array", "items": { "enum": ["claude", "codex", "gemini", "opencode"] } },
     "modules": { "type": "array" }
   },
   "additionalProperties": false

@@ -1,4 +1,4 @@
-export const targetNames = ["agents-md", "claude", "codex", "gemini", "opencode"] as const
+export const targetNames = ["claude", "codex", "gemini", "opencode"] as const
 export type TargetName = (typeof targetNames)[number]
 
 export interface ModuleSource {

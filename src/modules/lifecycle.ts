@@ -2,7 +2,7 @@ import fs from "node:fs/promises"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { fail } from "../errors.ts"
-import { agentsPath, copyTree, exists, isSafeRelativePath, listPayload, removeEmptyParents } from "../core/fs.ts"
+import { agentsPath, exists, isSafeRelativePath, listPayload, removeEmptyParents } from "../core/fs.ts"
 import { loadModule, loadProject } from "../core/manifest.ts"
 import type { InstalledModule, ModuleManifest, ModuleSource, ProjectManifest } from "../types.ts"
 
@@ -36,13 +36,19 @@ async function downloadGithubModule(repository: string, name: string): Promise<R
 }
 
 async function resolveModule(root: string, name: string, source?: ModuleSource): Promise<ResolvedModule | Error> {
+  if (source?.local && path.isAbsolute(source.local)) return fail(`Local module source must be relative to the client project: ${source.local}`)
   const local = source?.local ? path.resolve(root, source.local, "modules", name) : null
   if (local && await exists(local)) {
     const manifest = await loadModule(path.join(local, "module.json"))
-    if (manifest instanceof Error) return manifest
-    return { manifest, root: local, source, link: true }
+    if (manifest instanceof Error && !source?.github) return manifest
+    if (!(manifest instanceof Error)) return { manifest, root: local, source, link: true }
   }
-  if (source?.github) return await downloadGithubModule(source.github, name)
+  if (source?.github) {
+    const downloaded = await downloadGithubModule(source.github, name)
+    if (downloaded instanceof Error) return downloaded
+    return { ...downloaded, source }
+  }
+  if (source) return fail(`Cannot resolve module ${name} from ${sourceLabel(source)}`)
   const catalog = path.join(packageRoot, "modules", name)
   if (await exists(catalog)) {
     const manifest = await loadModule(path.join(catalog, "module.json"))
@@ -60,7 +66,10 @@ async function resolveClosure(root: string, name: string, source?: ModuleSource)
     if (visiting.has(next)) return fail(`Module dependency cycle includes ${next}`)
     if (seen.has(next)) return null
     visiting.add(next)
-    const module = await resolveModule(root, next, source)
+    const candidate = await resolveModule(root, next, source)
+    const module = candidate instanceof Error && next !== name && source && /(?:Cannot resolve module|is not available)/.test(candidate.message)
+      ? await resolveModule(root, next)
+      : candidate
     if (module instanceof Error) return module
     if (module.manifest.name !== next) return fail(`Module manifest name ${module.manifest.name} does not match requested ${next}`)
     for (const dependency of module.manifest.dependencies) {
@@ -100,6 +109,72 @@ async function saveManifest(root: string, manifest: ProjectManifest) {
   return result instanceof Error ? result : null
 }
 
+function dependencyClosure(project: ProjectManifest, name: string) {
+  const closure = new Set<string>()
+  function visit(next: string) {
+    if (closure.has(next)) return
+    closure.add(next)
+    project.modules.find((module) => module.name === next)?.dependencies.forEach(visit)
+  }
+  visit(name)
+  return closure
+}
+
+function removableDependencies(project: ProjectManifest, candidates: Set<string>, refreshed: Set<string>) {
+  const removable = new Set<string>()
+  let changed = true
+  while (changed) {
+    changed = false
+    for (const name of candidates) {
+      if (removable.has(name)) continue
+      const module = project.modules.find((entry) => entry.name === name)
+      if (!module || module.direct) continue
+      const dependents = project.modules.filter((entry) => entry.dependencies.includes(name))
+      if (dependents.every((dependent) => refreshed.has(dependent.name) || (candidates.has(dependent.name) && removable.has(dependent.name)))) {
+        removable.add(name)
+        changed = true
+      }
+    }
+  }
+  return removable
+}
+
+async function transaction(root: string, operation: () => Promise<null | Error>): Promise<null | Error> {
+  const agents = agentsPath(root)
+  const backup = path.join(root, `.agentsrc-module-backup-${process.pid}`)
+  const stage = path.join(root, `.agentsrc-module-stage-${process.pid}`)
+  const copied = await fs.rm(backup, { recursive: true, force: true }).then(() => fs.rm(stage, { recursive: true, force: true })).then(() => fs.cp(agents, stage, { recursive: true, dereference: false })).catch((cause) => fail("Cannot stage module transaction", cause))
+  if (copied instanceof Error) return copied
+  const snapshot = await fs.rename(agents, backup).then(() => fs.rename(stage, agents)).catch((cause) => fail("Cannot activate module transaction stage", cause))
+  if (snapshot instanceof Error && !(await exists(agents))) await fs.rename(backup, agents).catch(() => undefined)
+  if (snapshot instanceof Error) return snapshot
+  const result = await operation()
+  if (!(result instanceof Error)) {
+    await fs.rm(backup, { recursive: true, force: true })
+    return null
+  }
+  const restored = await fs.rm(agents, { recursive: true, force: true }).then(() => fs.rename(backup, agents)).catch((cause) => fail("Cannot restore module transaction backup", cause))
+  return restored instanceof Error ? restored : result
+}
+
+async function installPreflight(root: string, project: ProjectManifest, planned: Array<{ module: ResolvedModule; files: string[] }>, replacing = new Set<string>()) {
+  const destinations = new Set<string>()
+  for (const item of planned) {
+    const installed = project.modules.find((entry) => entry.name === item.module.manifest.name)
+    if (installed && !replacing.has(installed.name) && JSON.stringify(installed.source ?? {}) !== JSON.stringify(item.module.source ?? {})) return fail(`Module ${installed.name} is already installed from a different source`)
+    if (installed && !replacing.has(installed.name)) continue
+    for (const file of item.files) {
+      if (destinations.has(file)) return fail(`Module destination collision: ${file}`)
+      destinations.add(file)
+      if (project.modules.some((entry) => !replacing.has(entry.name) && entry.files.includes(file))) return fail(`Module destination collision: ${file}`)
+      const destination = path.join(agentsPath(root), file)
+      const replacedDestination = project.modules.some((entry) => replacing.has(entry.name) && entry.files.includes(file))
+      if (await exists(destination) && !replacedDestination) return fail(`Module destination is already occupied: .agents/${file}`)
+    }
+  }
+  return null
+}
+
 export async function addModule(root: string, name: string, source?: ModuleSource): Promise<null | Error> {
   const project = await loadProject(root)
   if (project instanceof Error) return project
@@ -111,20 +186,19 @@ export async function addModule(root: string, name: string, source?: ModuleSourc
     if (files instanceof Error) return files
     planned.push({ module, files })
   }
-  for (const item of planned) {
-    const installed = project.modules.find((entry) => entry.name === item.module.manifest.name)
-    if (installed && JSON.stringify(installed.source ?? {}) !== JSON.stringify(item.module.source ?? {})) return fail(`Module ${installed.name} is already installed from a different source`)
-    for (const file of item.files) if (project.modules.some((entry) => entry.name !== item.module.manifest.name && entry.files.includes(file))) return fail(`Module destination collision: ${file}`)
-  }
+  const preflight = await installPreflight(root, project, planned)
+  if (preflight instanceof Error) return preflight
   const next: ProjectManifest = structuredClone(project)
-  for (const item of planned) {
-    const existing = next.modules.find((entry) => entry.name === item.module.manifest.name)
-    if (existing) { if (item.module.manifest.name === name) existing.direct = true; continue }
-    const installed = await installPayload(root, item.module, item.files)
-    if (installed instanceof Error) return installed
-    next.modules.push({ name: item.module.manifest.name, direct: item.module.manifest.name === name, source: item.module.source, dependencies: item.module.manifest.dependencies, files: item.files })
-  }
-  return await saveManifest(root, next)
+  return await transaction(root, async () => {
+    for (const item of planned) {
+      const existing = next.modules.find((entry) => entry.name === item.module.manifest.name)
+      if (existing) { if (item.module.manifest.name === name) existing.direct = true; continue }
+      const installed = await installPayload(root, item.module, item.files)
+      if (installed instanceof Error) return installed
+      next.modules.push({ name: item.module.manifest.name, direct: item.module.manifest.name === name, source: item.module.source, dependencies: item.module.manifest.dependencies, files: item.files })
+    }
+    return await saveManifest(root, next)
+  })
 }
 
 export async function removeModule(root: string, name: string): Promise<null | Error> {
@@ -140,15 +214,19 @@ export async function removeModule(root: string, name: string): Promise<null | E
     changed = false
     for (const module of project.modules) {
       if (module.direct || removing.has(module.name)) continue
-      if (module.dependencies.every((dependency) => removing.has(dependency) || !project.modules.some((entry) => entry.name === dependency))) { removing.add(module.name); changed = true }
+      const dependents = project.modules.filter((entry) => entry.dependencies.includes(module.name))
+      if (dependents.every((dependent) => removing.has(dependent.name))) { removing.add(module.name); changed = true }
     }
   }
-  for (const module of project.modules.filter((entry) => removing.has(entry.name))) for (const file of module.files) {
-    const destination = path.join(agentsPath(root), file)
-    await fs.rm(destination, { force: true })
-    await removeEmptyParents(destination, agentsPath(root))
-  }
-  return await saveManifest(root, { ...project, modules: project.modules.filter((module) => !removing.has(module.name)) })
+  return await transaction(root, async () => {
+    for (const module of project.modules.filter((entry) => removing.has(entry.name))) for (const file of module.files) {
+      const destination = path.join(agentsPath(root), file)
+      const removed = await fs.rm(destination, { force: true }).catch((cause) => fail(`Cannot remove .agents/${file}`, cause))
+      if (removed instanceof Error) return removed
+      await removeEmptyParents(destination, agentsPath(root))
+    }
+    return await saveManifest(root, { ...project, modules: project.modules.filter((module) => !removing.has(module.name)) })
+  })
 }
 
 export async function updateModule(root: string, name: string): Promise<null | Error> {
@@ -156,7 +234,33 @@ export async function updateModule(root: string, name: string): Promise<null | E
   if (project instanceof Error) return project
   const installed = project.modules.find((module) => module.name === name)
   if (!installed) return fail(`Module ${name} is not installed`)
-  const removal = await removeModule(root, name)
-  if (removal instanceof Error) return removal
-  return await addModule(root, name, installed.source)
+  const closure = await resolveClosure(root, name, installed.source)
+  if (closure instanceof Error) return closure
+  const planned: Array<{ module: ResolvedModule; files: string[] }> = []
+  for (const module of closure) {
+    const files = await payload(module)
+    if (files instanceof Error) return files
+    planned.push({ module, files })
+  }
+  const refreshed = new Set(planned.map((item) => item.module.manifest.name))
+  const obsolete = dependencyClosure(project, name)
+  for (const refreshedName of refreshed) obsolete.delete(refreshedName)
+  const replacing = new Set([...refreshed, ...removableDependencies(project, obsolete, refreshed)])
+  const preflight = await installPreflight(root, project, planned, replacing)
+  if (preflight instanceof Error) return preflight
+  const next = structuredClone(project)
+  return await transaction(root, async () => {
+    for (const prior of project.modules.filter((module) => replacing.has(module.name))) for (const file of prior.files) {
+      const removed = await fs.rm(path.join(agentsPath(root), file), { force: true }).catch((cause) => fail(`Cannot replace .agents/${file}`, cause))
+      if (removed instanceof Error) return removed
+    }
+    next.modules = next.modules.filter((module) => !replacing.has(module.name))
+    for (const item of planned) {
+      const copied = await installPayload(root, item.module, item.files)
+      if (copied instanceof Error) return copied
+      const prior = project.modules.find((module) => module.name === item.module.manifest.name)
+      next.modules.push({ name: item.module.manifest.name, direct: prior?.direct ?? item.module.manifest.name === name, source: item.module.source, dependencies: item.module.manifest.dependencies, files: item.files })
+    }
+    return await saveManifest(root, next)
+  })
 }

@@ -24,7 +24,6 @@ agentsrc/
       module-v1.json
       mcp-server-v1.json
     targets/
-      agents-md/
       claude/
       codex/
       gemini/
@@ -95,7 +94,7 @@ ignored.
 {
   "$schema": "https://raw.githubusercontent.com/joaogsleite/agentsrc/main/src/schemas/project-v1.json",
   "formatVersion": 1,
-  "targets": ["agents-md", "claude", "codex", "gemini", "opencode"],
+  "targets": ["claude", "codex", "gemini", "opencode"],
   "modules": [
     {
       "name": "memory-system",
@@ -268,8 +267,8 @@ outputs, so the CLI deletes and recreates the complete target directory or file:
 
 | Target | Rebuilt output |
 | --- | --- |
-| `agents-md` | `AGENTS.md` |
-| `claude` | `.claude/` and `CLAUDE.md` |
+| Base projection | `AGENTS.md` (always generated) |
+| `claude` | `.claude/`, `CLAUDE.md`, and `.mcp.json` |
 | `codex` | `.codex/` |
 | `gemini` | `.gemini/` and `GEMINI.md` |
 | `opencode` | `.opencode/` and `opencode.json` |
@@ -294,6 +293,7 @@ AGENTS.md
 CLAUDE.md
 GEMINI.md
 opencode.json
+.mcp.json
 # END agentsrc generated
 ```
 
@@ -305,7 +305,7 @@ missing block as an error.
 ## CLI
 
 ```text
-agentsrc init [--targets agents-md,claude,codex,gemini,opencode]
+agentsrc init [--targets claude,codex,gemini,opencode]
 agentsrc validate [--strict]
 agentsrc generate [target...] [--check] [--strict]
 agentsrc status
@@ -351,4 +351,3 @@ The MVP initializes `.agents/`, installs, updates, and removes generic modules
 from default, local, and GitHub sources; rebuilds all selected target outputs
 from canonical content; keeps agent data in `.agents/`; and verifies the result
 in CI without mutating the working tree.
-

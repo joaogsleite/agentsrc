@@ -82,10 +82,14 @@ export function createCli() {
       const project = await loadProject(process.cwd)
       if (project instanceof Error) { console.error(project.message); process.exit(1); return }
       console.log(project.modules.length ? project.modules.map((module) => `${module.name}${module.direct ? "" : " (dependency)"}`).join("\n") : "No modules installed")
+      const validation = await validateProject(process.cwd)
+      printValidation(validation, console)
+      if (validation.errors.length) { process.exit(1); return }
       const canonical = await discover(process.cwd)
       if (canonical instanceof Error) { console.error(canonical.message); process.exit(1); return }
       const check = await generateTargets(process.cwd, project.targets, canonical, true)
-      console.log(check instanceof Error ? `Output drift: ${check.message}` : "Generated output is current")
+      if (check instanceof Error) { console.error(`Output drift: ${check.message}`); process.exit(1); return }
+      console.log("Generated output is current")
     })
   cli.command("module add <name>", "Install a module and its dependencies")
     .option("--local [path]", z.string().optional().describe("Local source repository"))

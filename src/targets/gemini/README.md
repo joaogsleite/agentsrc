@@ -1,3 +1,9 @@
-# Gemini Adapter
+# Gemini CLI Adapter
 
-Generates `.gemini/` and `GEMINI.md`, including copied canonical content and MCP configuration.
+Verified with Gemini CLI `0.51.0` against the [MCP](https://geminicli.com/docs/tools/mcp-server/), [settings](https://geminicli.com/docs/cli/settings/), and [GEMINI.md](https://geminicli.com/docs/cli/gemini-md/) documentation.
+
+- Output: `.gemini/settings.json` and `GEMINI.md`.
+- Supports stdio and header-free streamable HTTP MCPs. `timeoutMs` maps to Gemini milliseconds.
+- Stdio MCP fragments with `transport.env` or a non-root `cwd` receive a `.gemini/agentsrc-mcps/<name>.sh` wrapper.
+- Gemini cannot safely represent environment-backed HTTP headers, so those fragments are errors.
+- Canonical agents, commands, and skills are unsupported and reported as compatibility warnings, or errors under `--strict`.

@@ -47,7 +47,7 @@ export async function loadMcp(file: string): Promise<McpServer | Error> {
 
 export async function writeManagedGitignore(root: string): Promise<null | Error> {
   const file = path.join(root, ".gitignore")
-  const block = ["# BEGIN agentsrc generated", ".agents/state/", ".claude/", ".codex/", ".gemini/", ".opencode/", "AGENTS.md", "CLAUDE.md", "GEMINI.md", "opencode.json", "# END agentsrc generated"].join("\n")
+  const block = managedGitignoreBlock
   const current = await fs.readFile(file, "utf8").catch((error: NodeJS.ErrnoException) => error.code === "ENOENT" ? "" : fail(`Cannot read ${file}`, error))
   if (current instanceof Error) return current
   const next = current.replace(/(?:^|\n)# BEGIN agentsrc generated[\s\S]*?# END agentsrc generated\n?/, "").replace(/\s*$/, "")
@@ -58,5 +58,8 @@ export async function writeManagedGitignore(root: string): Promise<null | Error>
 export async function hasManagedGitignore(root: string): Promise<boolean> {
   const file = path.join(root, ".gitignore")
   const text = await fs.readFile(file, "utf8").catch(() => "")
-  return /# BEGIN agentsrc generated\n\.agents\/state\/[\s\S]*?# END agentsrc generated/.test(text)
+  const blocks = text.match(/# BEGIN agentsrc generated\n[\s\S]*?# END agentsrc generated/g) ?? []
+  return blocks.length === 1 && blocks[0] === managedGitignoreBlock
 }
+
+export const managedGitignoreBlock = ["# BEGIN agentsrc generated", ".agents/state/", ".claude/", ".codex/", ".gemini/", ".opencode/", "AGENTS.md", "CLAUDE.md", "GEMINI.md", "opencode.json", ".mcp.json", "# END agentsrc generated"].join("\n")
