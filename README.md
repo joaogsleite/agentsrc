@@ -7,7 +7,7 @@
     <br/>
 </div>
 
-agentsrc keeps coding-agent configuration in one tracked `.agents/` directory and generates ignored projections for Claude Code, Codex, Gemini CLI, OpenCode, and `AGENTS.md`.
+agentsrc keeps coding-agent configuration in one tracked `.agents/` directory and generates ignored projections for Claude Code, Codex, Gemini CLI, and OpenCode.
 
 ## Install
 
