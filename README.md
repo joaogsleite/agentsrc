@@ -7,11 +7,11 @@
     <br/>
 </div>
 
-AgentSrc keeps coding-agent configuration in one tracked `.agents/` directory and generates ignored projections for Claude Code, Codex, Gemini CLI, OpenCode, and `AGENTS.md`.
+agentsrc keeps coding-agent configuration in one tracked `.agents/` directory and generates ignored projections for Claude Code, Codex, Gemini CLI, OpenCode, and `AGENTS.md`.
 
 ## Install
 
-Install AgentSrc directly from Git. No npm publishing or compiled `dist/` output is required:
+Install agentsrc directly from Git. No npm publishing or compiled `dist/` output is required:
 
 ```sh
 npm install -D github:joaogsleite/agentsrc#main
@@ -59,23 +59,7 @@ Pin the Git dependency to a release tag or commit SHA when reproducibility matte
 
 ## Generated Configuration
 
-AgentSrc projects a built-in source-of-truth rule and `manage-agentsrc` skill into every selected target folder. They instruct coding agents to edit only `.agents/`, validate with `npm run agents -- validate --strict`, and regenerate with `npm run agents -- generate`. Generated output is disposable: agents must not edit `.claude/`, `.codex/`, `.gemini/`, `.opencode/`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `opencode.json`, or `.mcp.json` directly.
-
-## Session Documentation
-
-Install the optional `memory-system` module to establish a portable session-to-documentation workflow:
-
-```sh
-npm run agents -- module add memory-system
-```
-
-Generated `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` are small bootstraps: they instruct agents to read the live documentation index and current rules from `.agents/`, rather than embedding stale copies. The module instructs agents to record concise, append-only reports under `.agents/sessions/` and to use `.agents/docs/INDEX.md` as the durable documentation entry point. Session reports are ignored; documentation is tracked. Consolidation is deliberately user-invoked so routine implementation details do not become permanent context:
-
-```text
-/project-memory consolidate <session paths or date range>
-```
-
-The skill promotes only verified, high-value decisions, architecture, patterns, constraints, and recurring user feedback. It leaves documentation unchanged when no durable improvement is warranted. Targets without skill support follow the same workflow when asked to consolidate session documentation.
+agentsrc projects a built-in source-of-truth rule and `manage-agentsrc` skill into every selected target folder. They instruct coding agents to edit only `.agents/`, validate with `npm run agents -- validate --strict`, and regenerate with `npm run agents -- generate`. Generated output is disposable: agents must not edit `.claude/`, `.codex/`, `.gemini/`, `.opencode/`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `opencode.json`, or `.mcp.json` directly.
 
 ## Project Manifest
 
@@ -85,22 +69,54 @@ The skill promotes only verified, high-value decisions, architecture, patterns, 
 {
   "formatVersion": 1,
   "targets": ["claude", "opencode"],
-  "modules": [
-    {
-      "name": "memory-system",
-      "dependencies": [],
-      "files": [
-        "rules/project-memory.md",
-        "skills/project-memory/SKILL.md"
-      ]
-    }
-  ]
+  "modules": []
 }
 ```
 
 Dependencies declared by a module's `module.json` are installed with its payload but are inferred from the dependency graph rather than added as separate manifest entries.
 
-## Modules
+## Authoring Configuration
+
+### Rules
+
+Put always-applicable project instructions in `.agents/rules/*.md`. Generated root instruction files direct agents to read these files from the canonical source.
+
+```md
+# Testing
+
+Run `npm test` after changing behavior covered by tests.
+```
+
+### Skills
+
+Put an on-demand workflow in `.agents/skills/<name>/SKILL.md`. A skill can include supporting files, scripts, and assets in the same directory.
+
+```md
+---
+name: review-api
+description: Review API changes for project conventions.
+---
+
+# Review API
+
+Check validation, error responses, and tests.
+```
+
+### Commands
+
+Put reusable command prompts in `.agents/commands/<name>.md`.
+
+```md
+# Release Check
+
+Run the release validation steps and report any blockers.
+```
+
+### Agents
+
+Put specialized agent definitions in `.agents/agents/<name>.md`. Include the target-supported frontmatter and a focused role prompt. Agent and command support varies by target; run `validate --strict` to detect incompatible configurations.
+
+### Modules
 
 Modules are data-only payloads under `modules/<name>/`. Every payload file except `module.json` maps to the same relative path in `.agents/`.
 
@@ -115,7 +131,7 @@ npm run agents -- module remove memory-system
 
 Local sources install relative symlinks, so edits to the source module are immediately visible in the client project. GitHub and first-party catalog sources install copied payloads. See [module authoring](docs/module-authoring.md) for the module layout and safety rules.
 
-## MCP Servers
+### MCP Servers
 
 Put one portable MCP fragment in `.agents/mcps/<name>.json`. The filename must match `name`.
 
@@ -132,7 +148,7 @@ Put one portable MCP fragment in `.agents/mcps/<name>.json`. The filename must m
 }
 ```
 
-For local stdio servers with `transport.env`, AgentSrc generates a target-local wrapper that reads the project-root `.env` at runtime and exports only the declared variables. Secret values never enter generated configuration. HTTP MCP header support depends on the target; `validate --strict` reports incompatible fragments.
+For local stdio servers with `transport.env`, agentsrc generates a target-local wrapper that reads the project-root `.env` at runtime and exports only the declared variables. Secret values never enter generated configuration. HTTP MCP header support depends on the target; `validate --strict` reports incompatible fragments.
 
 ## Generate And Check
 
@@ -154,24 +170,12 @@ npm run agents -- status
 
 `generate --check` changes nothing and fails when generated output has drifted. Use it in CI after `validate --strict`.
 
-## Shell Completions
-
-```sh
-npm run agents -- completions install
-```
-
-Restart the shell afterwards. Remove completions with:
-
-```sh
-npm run agents -- completions uninstall
-```
-
 ## Local Development Override
 
-Keep the Git dependency in every consumer repository. It is the portable default for collaborators and CI. When actively changing AgentSrc locally, replace only the installed copy with a symlink:
+Keep the Git dependency in every consumer repository. It is the portable default for collaborators and CI. When actively changing agentsrc locally, replace only the installed copy with a symlink:
 
 ```sh
-# Run once from the AgentSrc checkout
+# Run once from the agentsrc checkout
 npm link
 
 # Run from a consumer repository

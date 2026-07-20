@@ -28,13 +28,13 @@ async function initialize(root: string, selected: TargetName[]) {
   }).catch((error) => error as Error)
   if (result instanceof Error) return result
   if (!(await exists(manifestPath(root)))) {
-    const written = await writeJson(manifestPath(root), { $schema: "https://raw.githubusercontent.com/joaogsleite/agentsrc/main/src/schemas/project-v1.json", formatVersion: 1, targets: selected, modules: [] })
+    const written = await writeJson(manifestPath(root), { $schema: "https://raw.githubusercontent.com/joaogsleite/agentsrc/main/schemas/project-v1.json", formatVersion: 1, targets: selected, modules: [] })
     if (written instanceof Error) return written
   }
   const index = path.join(agents, "docs", "INDEX.md")
   if (!(await exists(index))) await fs.writeFile(index, "# Project Documentation\n\nUse this index to navigate durable project knowledge. Add links to documentation that will help future coding sessions.\n")
   const rule = path.join(agents, "rules", "agentsrc-storage.md")
-  if (!(await exists(rule))) await fs.writeFile(rule, "# AgentSrc Storage\n\nStore durable project documentation in `.agents/docs/`, session reports in `.agents/sessions/`, and temporary scratch data in `.agents/state/`. Do not write agent runtime data to generated target directories or the repository root.\n")
+  if (!(await exists(rule))) await fs.writeFile(rule, "# agentsrc Storage\n\nStore durable project documentation in `.agents/docs/`, session reports in `.agents/sessions/`, and temporary scratch data in `.agents/state/`. Do not write agent runtime data to generated target directories or the repository root.\n")
   return await writeManagedGitignore(root)
 }
 
@@ -124,7 +124,6 @@ export function createCli() {
       console.log(`Updated ${name}`)
     })
   cli.help()
-  cli.completions()
   cli.version(packageJson.version)
   return cli
 }

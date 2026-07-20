@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "AgentSrc MCP server v1",
+  "title": "agentsrc MCP server v1",
   "type": "object",
   "required": ["name", "transport"],
   "properties": {

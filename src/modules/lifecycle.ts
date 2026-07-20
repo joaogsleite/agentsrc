@@ -9,7 +9,7 @@ import type { InstalledModule, ModuleManifest, ModuleSource, ProjectManifest } f
 interface ResolvedModule { manifest: ModuleManifest; root: string; source: ModuleSource | undefined; link: boolean }
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..")
 
-function sourceLabel(source?: ModuleSource) { return source?.local ?? source?.github ?? "the AgentSrc catalog" }
+function sourceLabel(source?: ModuleSource) { return source?.local ?? source?.github ?? "the agentsrc catalog" }
 
 function sameSourceLocation(left?: ModuleSource, right?: ModuleSource) {
   return left?.local === right?.local && left?.github === right?.github

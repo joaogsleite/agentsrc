@@ -7,4 +7,4 @@ Verified with Claude Code `2.1.215` against the [MCP](https://code.claude.com/do
 - Generates the built-in source-of-truth rule in `.claude/rules/` and the `manage-agentsrc` skill in `.claude/skills/`.
 - Stdio MCP fragments with `transport.env` or a non-root `cwd` receive an `.claude/agentsrc-mcps/<name>.sh` wrapper.
 - `timeoutMs` maps to Claude's millisecond `timeout` field.
-- Limitation: Claude does not document an MCP `cwd` field, so AgentSrc handles it only through the launcher wrapper.
+- Limitation: Claude does not document an MCP `cwd` field, so agentsrc handles it only through the launcher wrapper.

@@ -9,7 +9,7 @@ const run = promisify(execFile)
 const directories: string[] = []
 
 async function agentsrc(root: string, ...args: string[]) {
-  return await run(process.execPath, [path.resolve("bin/agentsrc.mjs"), ...args], { cwd: root })
+  return await run(process.execPath, [path.resolve("src/bin.mjs"), ...args], { cwd: root })
 }
 
 async function localModule(project: string, name: string, files: Record<string, string>, dependencies: string[] = []) {

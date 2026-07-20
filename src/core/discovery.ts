@@ -74,8 +74,8 @@ export async function discover(root: string): Promise<CanonicalProject | Error> 
 }
 
 export function renderInstructions(_project: CanonicalProject, target?: TargetName) {
-  const rule = target ? `.${target}/rules/agentsrc-source-of-truth.md` : "the generated target-local `rules/agentsrc-source-of-truth.md` file"
-  const skill = target ? `.${target}/skills/manage-agentsrc/SKILL.md` : "the generated target-local `skills/manage-agentsrc/SKILL.md` file"
+  const rule = target ? `\`.${target}/rules/agentsrc-source-of-truth.md\`` : "the generated target-local `rules/agentsrc-source-of-truth.md` file"
+  const skill = target ? `\`.${target}/skills/manage-agentsrc/SKILL.md\`` : "the generated target-local `skills/manage-agentsrc/SKILL.md` file"
   const sections = [
     "# Project Agent Instructions",
     "",
@@ -87,7 +87,7 @@ export function renderInstructions(_project: CanonicalProject, target?: TargetNa
     "- Read every Markdown file under `.agents/rules/` and treat it as project instruction.",
     "- When the user explicitly requests a workflow, load the relevant `.agents/skills/*/SKILL.md` file.",
     "",
-    "When changing AgentSrc-managed configuration, first read `" + rule + "` and `" + skill + "`.",
+    "When changing agentsrc-managed configuration, first read " + rule + " and " + skill + ".",
     "",
     "Keep durable project documentation in `.agents/docs/`, session reports in `.agents/sessions/`, and temporary scratch state in `.agents/state/`. Do not create agent runtime data in generated target directories or the repository root.",
   ]

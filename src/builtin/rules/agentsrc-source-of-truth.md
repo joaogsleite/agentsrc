@@ -1,6 +1,6 @@
-# AgentSrc Source Of Truth
+# agentsrc Source Of Truth
 
-AgentSrc-managed configuration is generated output. Never edit `.claude/`, `.codex/`, `.gemini/`, `.opencode/`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `opencode.json`, or `.mcp.json` directly.
+agentsrc-managed configuration is generated output. Never edit `.claude/`, `.codex/`, `.gemini/`, `.opencode/`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `opencode.json`, or `.mcp.json` directly.
 
 When changing coding-agent configuration, edit the canonical `.agents/` source instead:
 
@@ -11,11 +11,11 @@ When changing coding-agent configuration, edit the canonical `.agents/` source i
 - MCP fragments: `.agents/mcps/`
 - Targets and installed modules: `.agents/.agentsrc.json`
 
-Use `npm run agents -- module add`, `remove`, or `update` to manage modules. After any AgentSrc configuration change, run:
+Use `npm run agents -- module add`, `remove`, or `update` to manage modules. After any agentsrc configuration change, run:
 
 ```sh
 npm run agents -- validate --strict
 npm run agents -- generate
 ```
 
-If AgentSrc cannot represent a requested target-specific setting, explain the compatibility limitation. Do not hand-edit generated output as a workaround.
+If agentsrc cannot represent a requested target-specific setting, explain the compatibility limitation. Do not hand-edit generated output as a workaround.

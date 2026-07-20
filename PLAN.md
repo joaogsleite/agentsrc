@@ -1,6 +1,6 @@
-# AgentSrc
+# agentsrc
 
-**AgentSrc** (`agentsrc`) is a TypeScript CLI that makes a project's
+**agentsrc** is a TypeScript CLI that makes a project's
 `.agents/` directory the source of truth for coding-agent configuration. It
 generates complete Claude, Codex, Gemini, OpenCode, and `AGENTS.md` projections
 from that directory and manages reusable modules.
@@ -90,7 +90,7 @@ directories or the project root.
 ignored because they contain local runtime data; generated target output is always
 ignored.
 
-Generated target output also contains package-owned AgentSrc guidance. It directs
+Generated target output also contains package-owned agentsrc guidance. It directs
 agents to edit canonical `.agents/` sources and regenerate output rather than
 modifying `.claude/`, `.codex/`, `.gemini/`, `.opencode/`, or generated root
 instruction files directly.
@@ -99,7 +99,7 @@ instruction files directly.
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/joaogsleite/agentsrc/main/src/schemas/project-v1.json",
+  "$schema": "https://raw.githubusercontent.com/joaogsleite/agentsrc/main/schemas/project-v1.json",
   "formatVersion": 1,
   "targets": ["claude", "codex", "gemini", "opencode"],
   "modules": [
@@ -134,10 +134,10 @@ relative file path it installed below `.agents/`. It deliberately does not
 record versions, commits, hashes, or generated-output state.
 
 `source` is optional. When it is omitted, the module is installed from the
-AgentSrc catalog. Its optional `local` key is a path relative to the client
+agentsrc catalog. Its optional `local` key is a path relative to the client
 project; its optional `github` key is an `owner/repository` name. When both are
 set, `local` takes priority when it exists; otherwise `github` is used. Missing
-or empty `source` uses the AgentSrc GitHub repository.
+or empty `source` uses the agentsrc GitHub repository.
 
 ## Modules
 
@@ -146,7 +146,7 @@ required metadata is `module.json`:
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/joaogsleite/agentsrc/main/src/schemas/module-v1.json",
+  "$schema": "https://raw.githubusercontent.com/joaogsleite/agentsrc/main/schemas/module-v1.json",
   "name": "memory-system",
   "description": "Session reporting and curated project documentation workflows.",
   "dependencies": []
@@ -190,7 +190,7 @@ agentsrc module update <module-name>
 Dependencies are module names declared in `module.json`. `add` resolves them
 recursively from the same effective source repository as the requested module:
 the usable local source first, then its GitHub source. When a dependency is not
-present in that repository's `modules/` folder, it falls back to the AgentSrc
+present in that repository's `modules/` folder, it falls back to the agentsrc
 catalog. Module names are globally unique; a dependency already installed from a
 different source is an error. Dependencies install before their dependents and
 are installed with their payloads but are not recorded as module entries. The
@@ -214,7 +214,7 @@ server-name incompatibilities across engines. The v1 schema is:
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/joaogsleite/agentsrc/main/src/schemas/mcp-server-v1.json",
+  "$schema": "https://raw.githubusercontent.com/joaogsleite/agentsrc/main/schemas/mcp-server-v1.json",
   "name": "github",
   "enabled": true,
   "transport": {
@@ -232,7 +232,7 @@ Remote servers use the same envelope with an HTTP transport:
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/joaogsleite/agentsrc/main/src/schemas/mcp-server-v1.json",
+  "$schema": "https://raw.githubusercontent.com/joaogsleite/agentsrc/main/schemas/mcp-server-v1.json",
   "name": "context7",
   "transport": {
     "type": "http",

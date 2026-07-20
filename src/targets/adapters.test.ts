@@ -41,7 +41,7 @@ describe("target adapters", () => {
     expect(config).toEqual(expect.objectContaining({ instructions: [".opencode/rules/agentsrc-source-of-truth.md", ".agents/rules/**/*.md", ".agents/docs/INDEX.md"] }))
   })
 
-  test.each(Object.keys(adapters) as TargetName[])("%s projects built-in AgentSrc guidance", (target) => {
+  test.each(Object.keys(adapters) as TargetName[])("%s projects built-in agentsrc guidance", (target) => {
     const copies = adapters[target].plan(project).copies
     expect(copies).toEqual(expect.arrayContaining([{ from: "rules", to: `.${target}/rules`, source: "builtin" }, { from: "skills/manage-agentsrc", to: `.${target}/skills/manage-agentsrc`, source: "builtin" }]))
   })
