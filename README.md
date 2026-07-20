@@ -61,20 +61,6 @@ Pin the Git dependency to a release tag or commit SHA when reproducibility matte
 
 agentsrc projects a built-in source-of-truth rule and `manage-agentsrc` skill into every selected target folder. They instruct coding agents to edit only `.agents/`, validate with `npm run agents -- validate --strict`, and regenerate with `npm run agents -- generate`. Generated output is disposable: agents must not edit `.claude/`, `.codex/`, `.gemini/`, `.opencode/`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `opencode.json`, or `.mcp.json` directly.
 
-## Project Manifest
-
-`.agents/.agentsrc.json` selects target adapters and records only modules explicitly requested by the user:
-
-```json
-{
-  "formatVersion": 1,
-  "targets": ["claude", "opencode"],
-  "modules": []
-}
-```
-
-Dependencies declared by a module's `module.json` are installed with its payload but are inferred from the dependency graph rather than added as separate manifest entries.
-
 ## Authoring Configuration
 
 ### Rules
@@ -116,21 +102,6 @@ Run the release validation steps and report any blockers.
 
 Put specialized agent definitions in `.agents/agents/<name>.md`. Include the target-supported frontmatter and a focused role prompt. Agent and command support varies by target; run `validate --strict` to detect incompatible configurations.
 
-### Modules
-
-Modules are data-only payloads under `modules/<name>/`. Every payload file except `module.json` maps to the same relative path in `.agents/`.
-
-```sh
-npm run agents -- module add memory-system
-npm run agents -- module add team-workflows --local ../shared-agent-modules
-npm run agents -- module add team-workflows --github acme/shared-agent-modules
-npm run agents -- module list
-npm run agents -- module update memory-system
-npm run agents -- module remove memory-system
-```
-
-Local sources install relative symlinks, so edits to the source module are immediately visible in the client project. GitHub and first-party catalog sources install copied payloads. See [module authoring](docs/module-authoring.md) for the module layout and safety rules.
-
 ### MCP Servers
 
 Put one portable MCP fragment in `.agents/mcps/<name>.json`. The filename must match `name`.
@@ -149,6 +120,44 @@ Put one portable MCP fragment in `.agents/mcps/<name>.json`. The filename must m
 ```
 
 For local stdio servers with `transport.env`, agentsrc generates a target-local wrapper that reads the project-root `.env` at runtime and exports only the declared variables. Secret values never enter generated configuration. HTTP MCP header support depends on the target; `validate --strict` reports incompatible fragments.
+
+### Project Manifest
+
+`.agents/.agentsrc.json` selects target adapters and records modules installed in this consumer project:
+
+```json
+{
+  "formatVersion": 1,
+  "targets": ["claude", "opencode"],
+  "modules": [
+    {
+      "name": "memory-system",
+      "dependencies": [],
+      "files": [
+        "rules/project-memory.md",
+        "skills/project-memory/SKILL.md"
+      ]
+    }
+  ]
+}
+```
+
+#### Modules
+
+`modules/<name>/` is a module **source** layout used by the first-party catalog, a local source repository, or a GitHub repository. It is not a directory that consumers create inside their projects.
+
+When a consumer installs a module, agentsrc records it in `.agents/.agentsrc.json` and installs each payload file directly into the matching `.agents/` subdirectory. For example, a source file at `modules/memory-system/rules/project-memory.md` installs as `.agents/rules/project-memory.md`.
+
+```sh
+npm run agents -- module add memory-system
+npm run agents -- module add team-workflows --local ../shared-agent-modules
+npm run agents -- module add team-workflows --github acme/shared-agent-modules
+npm run agents -- module list
+npm run agents -- module update memory-system
+npm run agents -- module remove memory-system
+```
+
+Dependencies declared by a source module's `module.json` are installed with its payload but are inferred from the dependency graph rather than added as separate consumer manifest entries. Local sources install relative symlinks, so source edits are immediately visible in the consumer project. GitHub and first-party catalog sources install copied payloads. See [module authoring](docs/module-authoring.md) for the source layout and safety rules.
 
 ## Generate And Check
 
