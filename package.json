@@ -3,14 +3,14 @@
   "version": "0.1.0",
   "description": "Generate coding-agent configuration from a canonical .agents directory.",
   "type": "module",
-  "bin": "dist/cli.js",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "bin": "bin/agentsrc.mjs",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
   "exports": {
     "./package.json": "./package.json",
     ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
     },
     "./src": {
       "types": "./src/index.ts",
@@ -21,7 +21,7 @@
       "default": "./src/*.ts"
     }
   },
-  "files": ["src", "dist", "modules"],
+  "files": ["bin", "src", "modules", "docs"],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/joaogsleite/agentsrc.git",
@@ -31,20 +31,19 @@
   "bugs": "https://github.com/joaogsleite/agentsrc/issues",
   "keywords": ["agents", "claude", "codex", "gemini", "opencode", "mcp"],
   "scripts": {
-    "build": "tsc && chmod +x dist/cli.js",
+    "agents": "node bin/agentsrc.mjs",
     "test": "vitest run",
-    "test:examples": "npm run build && vitest run src/integration.test.ts",
-    "check": "tsc --noEmit",
-    "prepublishOnly": "rimraf dist \"*.tsbuildinfo\" && npm run build"
+    "test:examples": "vitest run src/integration.test.ts",
+    "check": "tsc --noEmit"
   },
   "dependencies": {
     "errore": "^0.14.1",
     "goke": "^6.8.0",
-    "zod": "^4.2.0"
+    "zod": "^4.2.0",
+    "tsx": "^4.20.5"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
-    "rimraf": "^6.0.0",
     "typescript": "^5.9.0",
     "vitest": "^3.2.0"
   }

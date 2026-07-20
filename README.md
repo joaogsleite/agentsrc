@@ -12,13 +12,51 @@
 ## Usage
 
 ```sh
-npx agentsrc init --targets claude,codex,gemini,opencode
-npx agentsrc module add memory-system
-npx agentsrc validate --strict
-npx agentsrc generate
+npm install -D github:joaogsleite/agentsrc#main
 ```
 
-Run `agentsrc --help` for all commands.
+Add one script to the consumer project's `package.json`:
+
+```json
+{
+  "scripts": {
+    "agents": "agentsrc"
+  }
+}
+```
+
+Forward every command through it:
+
+```sh
+npm run agents -- init --targets claude,codex,gemini,opencode
+npm run agents -- module add memory-system
+npm run agents -- validate --strict
+npm run agents -- generate
+```
+
+The Git dependency runs TypeScript source directly through its included `tsx` runtime. No `dist/` output or npm publishing is required.
+
+Pin the Git dependency to a release tag or commit SHA when reproducibility matters.
+
+## Local Development Override
+
+Keep the Git dependency in every consumer repository. It is the portable default for collaborators and CI. When actively changing AgentSrc locally, replace only the installed copy with a symlink:
+
+```sh
+# Run once from the AgentSrc checkout
+npm link
+
+# Run from a consumer repository
+npm link agentsrc
+```
+
+The consumer keeps its Git dependency in `package.json` and `package-lock.json`; `npm link agentsrc` changes only that machine's `node_modules/agentsrc` to point at the local checkout. Source changes are available immediately through the same command:
+
+```sh
+npm run agents -- validate --strict
+```
+
+After `npm install`, npm can restore the pinned Git dependency. Reapply the local override with `npm link agentsrc`. To stop using the local checkout, run `npm unlink agentsrc`; the next `npm install` restores the Git dependency.
 
 See [module authoring](docs/module-authoring.md) for the payload layout and safety rules.
 
@@ -31,7 +69,7 @@ HTTP MCP headers cannot use a shell wrapper because the target client owns the H
 ## Shell Completions
 
 ```sh
-agentsrc completions install
+npm run agents -- completions install
 ```
 
 Restart the shell afterwards. Remove them with `agentsrc completions uninstall`.

@@ -10,14 +10,14 @@ Run the complete workflow from the repository root:
 npm run test:examples
 ```
 
-The command builds AgentSrc, copies each example into an isolated temporary client project, runs `validate --strict`, regenerates every configured target, and verifies `generate --check`. Copying follows the example symlinks, so it tests the current module content without changing the checked-in examples.
+The command copies each example into an isolated temporary client project, runs `validate --strict`, regenerates every configured target, and verifies `generate --check`. Copying follows the example symlinks, so it tests the current module content without changing the checked-in examples.
 
 To exercise a new module manually, install it into a compatible example from that example directory:
 
 ```sh
-node ../../dist/cli.js module add my-module --local ../..
-node ../../dist/cli.js validate --strict
-node ../../dist/cli.js generate
+node ../../bin/agentsrc.mjs module add my-module --local ../..
+node ../../bin/agentsrc.mjs validate --strict
+node ../../bin/agentsrc.mjs generate
 ```
 
 Commit the resulting `.agents/.agentsrc.json` entry and relative links when the example should permanently cover that module.
