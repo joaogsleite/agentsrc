@@ -7,9 +7,11 @@
     <br/>
 </div>
 
-`agentsrc` keeps agent configuration in `.agents/` and generates ignored projections for Claude, Codex, Gemini, OpenCode, and `AGENTS.md`.
+AgentSrc keeps coding-agent configuration in one tracked `.agents/` directory and generates ignored projections for Claude Code, Codex, Gemini CLI, OpenCode, and `AGENTS.md`.
 
-## Usage
+## Install
+
+Install AgentSrc directly from Git. No npm publishing or compiled `dist/` output is required:
 
 ```sh
 npm install -D github:joaogsleite/agentsrc#main
@@ -25,18 +27,122 @@ Add one script to the consumer project's `package.json`:
 }
 ```
 
-Forward every command through it:
+Forward every command through that script:
 
 ```sh
 npm run agents -- init --targets claude,codex,gemini,opencode
-npm run agents -- module add memory-system
 npm run agents -- validate --strict
 npm run agents -- generate
 ```
 
-The Git dependency runs TypeScript source directly through its included `tsx` runtime. No `dist/` output or npm publishing is required.
-
 Pin the Git dependency to a release tag or commit SHA when reproducibility matters.
+
+## Canonical Configuration
+
+`.agents/` is the source of truth. Edit its contents, never generated target output.
+
+```text
+.agents/
+  .agentsrc.json       # Selected targets and requested modules
+  agents/              # Agent definitions
+  commands/            # Reusable commands
+  mcps/                # One portable MCP server per JSON file
+  rules/               # Project instructions
+  skills/<name>/       # SKILL.md and optional scripts/assets
+  memories/            # Durable project knowledge
+  state/               # Local runtime state, always ignored
+```
+
+`init` creates this layout, adds a storage rule, and owns the generated block in `.gitignore`. Agent scratch data and durable memory belong under `.agents/`, not at the repository root or in generated target directories.
+
+## Project Manifest
+
+`.agents/.agentsrc.json` selects target adapters and records only modules explicitly requested by the user:
+
+```json
+{
+  "formatVersion": 1,
+  "targets": ["claude", "opencode"],
+  "modules": [
+    {
+      "name": "memory-system",
+      "dependencies": [],
+      "files": [
+        "rules/project-memory.md",
+        "skills/project-memory/SKILL.md"
+      ]
+    }
+  ]
+}
+```
+
+Dependencies declared by a module's `module.json` are installed with its payload but are inferred from the dependency graph rather than added as separate manifest entries.
+
+## Modules
+
+Modules are data-only payloads under `modules/<name>/`. Every payload file except `module.json` maps to the same relative path in `.agents/`.
+
+```sh
+npm run agents -- module add memory-system
+npm run agents -- module add team-workflows --local ../shared-agent-modules
+npm run agents -- module add team-workflows --github acme/shared-agent-modules
+npm run agents -- module list
+npm run agents -- module update memory-system
+npm run agents -- module remove memory-system
+```
+
+Local sources install relative symlinks, so edits to the source module are immediately visible in the client project. GitHub and first-party catalog sources install copied payloads. See [module authoring](docs/module-authoring.md) for the module layout and safety rules.
+
+## MCP Servers
+
+Put one portable MCP fragment in `.agents/mcps/<name>.json`. The filename must match `name`.
+
+```json
+{
+  "name": "github",
+  "transport": {
+    "type": "stdio",
+    "command": "npx",
+    "args": ["-y", "@github/github-mcp-server"],
+    "env": ["GITHUB_TOKEN"]
+  },
+  "timeoutMs": 30000
+}
+```
+
+For local stdio servers with `transport.env`, AgentSrc generates a target-local wrapper that reads the project-root `.env` at runtime and exports only the declared variables. Secret values never enter generated configuration. HTTP MCP header support depends on the target; `validate --strict` reports incompatible fragments.
+
+## Generate And Check
+
+`AGENTS.md` is always generated. Selected targets rebuild their complete output:
+
+| Target | Generated output |
+| --- | --- |
+| Claude | `.claude/`, `CLAUDE.md`, `.mcp.json` |
+| Codex | `.codex/` |
+| Gemini | `.gemini/`, `GEMINI.md` |
+| OpenCode | `.opencode/`, `opencode.json` |
+
+```sh
+npm run agents -- generate
+npm run agents -- generate claude opencode
+npm run agents -- generate --check
+npm run agents -- status
+```
+
+`generate --check` changes nothing and fails when generated output has drifted. Use it in CI after `validate --strict`.
+
+## Shell Completions
+
+```sh
+npm run agents -- completions install
+```
+
+Restart the shell afterwards. Remove completions with:
+
+```sh
+npm run agents -- completions uninstall
+```
 
 ## Local Development Override
 
@@ -57,19 +163,3 @@ npm run agents -- validate --strict
 ```
 
 After `npm install`, npm can restore the pinned Git dependency. Reapply the local override with `npm link agentsrc`. To stop using the local checkout, run `npm unlink agentsrc`; the next `npm install` restores the Git dependency.
-
-See [module authoring](docs/module-authoring.md) for the payload layout and safety rules.
-
-## Project dotenv
-
-For a local stdio MCP fragment with `transport.env`, generation creates a target-local POSIX wrapper. The wrapper reads the project-root `.env`, exports only the listed variable names, and starts the original MCP process without writing secret values to generated configuration. This works for Claude, Codex, Gemini, and OpenCode projections.
-
-HTTP MCP headers cannot use a shell wrapper because the target client owns the HTTP connection. Those values must remain available through the target's normal environment mechanism.
-
-## Shell Completions
-
-```sh
-npm run agents -- completions install
-```
-
-Restart the shell afterwards. Remove them with `agentsrc completions uninstall`.
