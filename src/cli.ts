@@ -24,7 +24,7 @@ function targets(value?: string): TargetName[] | Error {
 async function initialize(root: string, selected: TargetName[]) {
   const agents = agentsPath(root)
   const result = await fs.mkdir(agents, { recursive: true }).then(async () => {
-    for (const directory of ["agents", "commands", "docs", "mcps", "rules", "sessions", "skills", "state"]) await fs.mkdir(path.join(agents, directory), { recursive: true })
+    for (const directory of ["agents", "commands", "config", "docs", "mcps", "rules", "sessions", "skills", "state"]) await fs.mkdir(path.join(agents, directory), { recursive: true })
   }).catch((error) => error as Error)
   if (result instanceof Error) return result
   if (!(await exists(manifestPath(root)))) {
@@ -34,7 +34,7 @@ async function initialize(root: string, selected: TargetName[]) {
   const index = path.join(agents, "docs", "INDEX.md")
   if (!(await exists(index))) await fs.writeFile(index, "# Project Documentation\n\nUse this index to navigate durable project knowledge. Add links to documentation that will help future coding sessions.\n")
   const rule = path.join(agents, "rules", "agentsrc-storage.md")
-  if (!(await exists(rule))) await fs.writeFile(rule, "# agentsrc Storage\n\nStore durable project documentation in `.agents/docs/`, session reports in `.agents/sessions/`, and temporary scratch data in `.agents/state/`. Do not write agent runtime data to generated target directories or the repository root.\n")
+  if (!(await exists(rule))) await fs.writeFile(rule, "# agentsrc Storage\n\nStore durable project documentation in `.agents/docs/`, shared persistent agent configuration in `.agents/config/`, session reports in `.agents/sessions/`, and temporary scratch data in `.agents/state/`. Do not write agent runtime data to generated target directories or the repository root.\n")
   return await writeManagedGitignore(root)
 }
 

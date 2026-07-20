@@ -10,6 +10,7 @@ When changing coding-agent configuration, edit the canonical `.agents/` source i
 - Commands: `.agents/commands/`
 - MCP fragments: `.agents/mcps/`
 - Targets and installed modules: `.agents/.agentsrc.json`
+- Shared persistent agent configuration: `.agents/config/`
 
 Use `npm run agents -- module add`, `remove`, or `update` to manage modules. After any agentsrc configuration change, run:
 

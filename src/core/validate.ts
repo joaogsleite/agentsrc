@@ -36,7 +36,7 @@ export async function validateProject(root: string, strict = false): Promise<Val
     names.add(module.name)
     if (module.source?.local && path.isAbsolute(module.source.local)) errors.push(`Local module source must be project-relative: ${module.name}`)
     for (const file of module.files) {
-      if (!isSafeRelativePath(file) || file === ".agentsrc.json" || file.startsWith("docs/") || file.startsWith("sessions/") || file.startsWith("state/")) errors.push(`Unsafe installed module path: ${module.name}/${file}`)
+      if (!isSafeRelativePath(file) || file === ".agentsrc.json" || file.startsWith("config/") || file.startsWith("docs/") || file.startsWith("sessions/") || file.startsWith("state/")) errors.push(`Unsafe installed module path: ${module.name}/${file}`)
       const destination = path.join(agentsPath(root), file)
       const stat = await fs.lstat(destination).catch(() => null)
       if (!stat) errors.push(`Missing module file: .agents/${file}`)

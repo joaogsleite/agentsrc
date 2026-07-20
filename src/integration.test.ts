@@ -9,7 +9,7 @@ const run = promisify(execFile)
 const directories: string[] = []
 
 async function agentsrc(root: string, ...args: string[]) {
-  return await run(process.execPath, [path.resolve("src/bin.mjs"), ...args], { cwd: root })
+  return await run(process.execPath, [path.resolve("bin.mjs"), ...args], { cwd: root })
 }
 
 async function localModule(project: string, name: string, files: Record<string, string>, dependencies: string[] = []) {
@@ -31,6 +31,7 @@ describe("agentsrc CLI", () => {
     const project = await fs.mkdtemp(path.join(os.tmpdir(), "agentsrc-test-"))
     directories.push(project)
     await agentsrc(project, "init", "--targets", "opencode")
+    expect((await fs.stat(path.join(project, ".agents", "config"))).isDirectory()).toBe(true)
     expect((await fs.stat(path.join(project, ".agents", "docs", "INDEX.md"))).isFile()).toBe(true)
     expect((await fs.stat(path.join(project, ".agents", "sessions"))).isDirectory()).toBe(true)
     await agentsrc(project, "module", "add", "memory-system")
@@ -50,6 +51,7 @@ describe("agentsrc CLI", () => {
     expect(instructions).toContain("Read every Markdown file under `.agents/rules/`")
     expect(instructions).not.toContain("This must not be startup context")
     expect(config.instructions).toEqual([".opencode/rules/agentsrc-source-of-truth.md", ".agents/rules/**/*.md", ".agents/docs/INDEX.md"])
+    expect(gitignore).not.toContain(".agents/config/")
     expect((await fs.stat(path.join(project, ".opencode", "rules", "agentsrc-source-of-truth.md"))).isFile()).toBe(true)
     expect((await fs.stat(path.join(project, ".opencode", "skills", "manage-agentsrc", "SKILL.md"))).isFile()).toBe(true)
     expect(gitignore).toContain(".agents/sessions/")
@@ -99,10 +101,10 @@ describe("agentsrc CLI", () => {
     await expect(fs.lstat(path.join(project, ".agents", "rules", "dependency.md"))).rejects.toMatchObject({ code: "ENOENT" })
   })
 
-  test("reserves user-owned documentation and session paths from modules", async () => {
+  test("reserves user-owned configuration paths from modules", async () => {
     const project = await fs.mkdtemp(path.join(os.tmpdir(), "agentsrc-test-"))
     directories.push(project)
-    await localModule(project, "workflow", { "docs/guide.md": "# Guide\n" })
+    await localModule(project, "workflow", { "config/tunnel.json": "{}\n" })
     await agentsrc(project, "init")
     await expect(agentsrc(project, "module", "add", "workflow", "--local", "./shared")).rejects.toMatchObject({ stderr: expect.stringContaining("reserved destination") })
   })

@@ -43,19 +43,34 @@ Pin the Git dependency to a release tag or commit SHA when reproducibility matte
 
 ```text
 .agents/
-  .agentsrc.json       # Selected targets and requested modules
-  agents/              # Agent definitions
-  commands/            # Reusable commands
-  mcps/                # One portable MCP server per JSON file
-  rules/               # Project instructions
-  skills/<name>/       # SKILL.md and optional scripts/assets
-  docs/                # Durable, tracked project documentation
-  docs/INDEX.md        # Concise entry point for every coding session
-  sessions/            # Append-only session reports, always ignored
-  state/               # Temporary scratch state, always ignored
+  .agentsrc.json                 # Selected targets and installed modules
+  agents/
+    <name>.md                     # Specialized agent definition
+  commands/
+    <name>.md                     # Reusable command prompt
+  config/                         # Shared persistent agent configuration
+  docs/
+    INDEX.md                      # Durable documentation entry point
+    <topic>.md                    # Project-defined reference material
+  mcps/
+    <name>.json                   # One portable MCP server per JSON file
+  rules/
+    <name>.md                     # Always-applicable project instruction
+  sessions/                       # Append-only reports, ignored by Git
+    <date>-<topic>.md
+  skills/
+    <name>/
+      SKILL.md                    # On-demand workflow entry point
+      references/
+        <name>.md                 # Optional reference material
+      scripts/
+        <name>.sh                 # Optional supporting script
+  state/                          # Temporary scratch data, ignored by Git
 ```
 
 `init` creates this layout, adds a storage rule, and owns the generated block in `.gitignore`. Project documentation belongs under `.agents/docs/`; session reports and scratch data belong under `.agents/`, not at the repository root or in generated target directories.
+
+`.agents/config/` is tracked shared configuration for durable agent-managed values, such as a stable tunnel domain. Do not store secrets there; use the project environment configuration for secret values.
 
 ## Generated Configuration
 
@@ -75,7 +90,7 @@ Run `npm test` after changing behavior covered by tests.
 
 ### Skills
 
-Put an on-demand workflow in `.agents/skills/<name>/SKILL.md`. A skill can include supporting files, scripts, and assets in the same directory.
+Put an on-demand workflow in `.agents/skills/<name>/SKILL.md`. A skill can include supporting `references/`, `scripts/`, and assets in the same directory.
 
 ```md
 ---

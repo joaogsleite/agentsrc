@@ -15,9 +15,9 @@ The command copies each example into an isolated temporary client project, runs 
 To exercise a new module manually, install it into a compatible example from that example directory:
 
 ```sh
-node ../../src/bin.mjs module add my-module --local ../..
-node ../../src/bin.mjs validate --strict
-node ../../src/bin.mjs generate
+node ../../bin.mjs module add my-module --local ../..
+node ../../bin.mjs validate --strict
+node ../../bin.mjs generate
 ```
 
 Commit the resulting `.agents/.agentsrc.json` entry and relative links when the example should permanently cover that module.

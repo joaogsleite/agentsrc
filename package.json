@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "Generate coding-agent configuration from a canonical .agents directory.",
   "type": "module",
-  "bin": "src/bin.mjs",
+  "bin": "bin.mjs",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
@@ -21,7 +21,7 @@
       "default": "./src/*.ts"
     }
   },
-  "files": ["src", "modules", "docs", "schemas"],
+  "files": ["bin.mjs", "src", "modules", "docs", "schemas"],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/joaogsleite/agentsrc.git",
@@ -31,7 +31,7 @@
   "bugs": "https://github.com/joaogsleite/agentsrc/issues",
   "keywords": ["agents", "claude", "codex", "gemini", "opencode", "mcp"],
   "scripts": {
-    "agents": "node src/bin.mjs",
+    "agents": "node bin.mjs",
     "test": "vitest run",
     "test:examples": "vitest run src/integration.test.ts",
     "check": "tsc --noEmit"
