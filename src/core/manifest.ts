@@ -11,7 +11,7 @@ const projectSchema = z.object({
   formatVersion: z.literal(1),
   targets: z.array(z.enum(targetNames)).default([]),
   modules: z.array(z.object({
-    name: z.string().regex(/^[a-z0-9-]+$/), direct: z.boolean(), source: moduleSourceSchema.optional(),
+    name: z.string().regex(/^[a-z0-9-]+$/), source: moduleSourceSchema.optional(),
     dependencies: z.array(z.string().regex(/^[a-z0-9-]+$/)), files: z.array(z.string()),
   }).strict()).default([]),
 }).strict()

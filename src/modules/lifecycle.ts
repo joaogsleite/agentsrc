@@ -11,6 +11,11 @@ const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 
 function sourceLabel(source?: ModuleSource) { return source?.local ?? source?.github ?? "the AgentSrc catalog" }
 
+function sameSourceLocation(left?: ModuleSource, right?: ModuleSource) {
+  return left?.local === right?.local && left?.github === right?.github
+}
+
+
 async function downloadGithubModule(repository: string, name: string): Promise<ResolvedModule | Error> {
   const prefix = `modules/${name}/`
   const response = await fetch(`https://api.github.com/repos/${repository}/git/trees/HEAD?recursive=1`, { headers: { Accept: "application/vnd.github+json" } }).catch((cause) => fail(`Cannot fetch ${repository}`, cause))
@@ -95,6 +100,7 @@ async function installPayload(root: string, module: ResolvedModule, files: strin
   for (const file of files) {
     const from = path.join(module.root, file)
     const to = path.join(agentsPath(root), file)
+    if (await exists(to)) continue
     const result = await fs.mkdir(path.dirname(to), { recursive: true }).then(async () => {
       if (module.link) return fs.symlink(path.relative(path.dirname(to), from), to)
       return fs.copyFile(from, to)
@@ -107,36 +113,6 @@ async function installPayload(root: string, module: ResolvedModule, files: strin
 async function saveManifest(root: string, manifest: ProjectManifest) {
   const result = await fs.writeFile(path.join(agentsPath(root), ".agentsrc.json"), `${JSON.stringify(manifest, null, 2)}\n`).catch((cause) => fail("Cannot write module registry", cause))
   return result instanceof Error ? result : null
-}
-
-function dependencyClosure(project: ProjectManifest, name: string) {
-  const closure = new Set<string>()
-  function visit(next: string) {
-    if (closure.has(next)) return
-    closure.add(next)
-    project.modules.find((module) => module.name === next)?.dependencies.forEach(visit)
-  }
-  visit(name)
-  return closure
-}
-
-function removableDependencies(project: ProjectManifest, candidates: Set<string>, refreshed: Set<string>) {
-  const removable = new Set<string>()
-  let changed = true
-  while (changed) {
-    changed = false
-    for (const name of candidates) {
-      if (removable.has(name)) continue
-      const module = project.modules.find((entry) => entry.name === name)
-      if (!module || module.direct) continue
-      const dependents = project.modules.filter((entry) => entry.dependencies.includes(name))
-      if (dependents.every((dependent) => refreshed.has(dependent.name) || (candidates.has(dependent.name) && removable.has(dependent.name)))) {
-        removable.add(name)
-        changed = true
-      }
-    }
-  }
-  return removable
 }
 
 async function transaction(root: string, operation: () => Promise<null | Error>): Promise<null | Error> {
@@ -161,12 +137,13 @@ async function installPreflight(root: string, project: ProjectManifest, planned:
   const destinations = new Set<string>()
   for (const item of planned) {
     const installed = project.modules.find((entry) => entry.name === item.module.manifest.name)
-    if (installed && !replacing.has(installed.name) && JSON.stringify(installed.source ?? {}) !== JSON.stringify(item.module.source ?? {})) return fail(`Module ${installed.name} is already installed from a different source`)
+    if (installed && !replacing.has(installed.name) && !sameSourceLocation(installed.source, item.module.source)) return fail(`Module ${installed.name} is already installed from a different source`)
     if (installed && !replacing.has(installed.name)) continue
     for (const file of item.files) {
       if (destinations.has(file)) return fail(`Module destination collision: ${file}`)
       destinations.add(file)
-      if (project.modules.some((entry) => !replacing.has(entry.name) && entry.files.includes(file))) return fail(`Module destination collision: ${file}`)
+      const installedFile = project.modules.some((entry) => !replacing.has(entry.name) && entry.files.includes(file))
+      if (installedFile) continue
       const destination = path.join(agentsPath(root), file)
       const replacedDestination = project.modules.some((entry) => replacing.has(entry.name) && entry.files.includes(file))
       if (await exists(destination) && !replacedDestination) return fail(`Module destination is already occupied: .agents/${file}`)
@@ -188,14 +165,17 @@ export async function addModule(root: string, name: string, source?: ModuleSourc
   }
   const preflight = await installPreflight(root, project, planned)
   if (preflight instanceof Error) return preflight
+  const requested = planned.find((item) => item.module.manifest.name === name)
+  if (!requested) return fail(`Module ${name} was not resolved`)
+  const installedFiles = [...new Set(planned.flatMap((item) => item.files))].sort()
   const next: ProjectManifest = structuredClone(project)
   return await transaction(root, async () => {
     for (const item of planned) {
       const existing = next.modules.find((entry) => entry.name === item.module.manifest.name)
-      if (existing) { if (item.module.manifest.name === name) existing.direct = true; continue }
       const installed = await installPayload(root, item.module, item.files)
       if (installed instanceof Error) return installed
-      next.modules.push({ name: item.module.manifest.name, direct: item.module.manifest.name === name, source: item.module.source, dependencies: item.module.manifest.dependencies, files: item.files })
+      if (existing || item.module.manifest.name !== name) continue
+      next.modules.push({ name, source: requested.module.source, dependencies: requested.module.manifest.dependencies, files: installedFiles })
     }
     return await saveManifest(root, next)
   })
@@ -205,27 +185,23 @@ export async function removeModule(root: string, name: string): Promise<null | E
   const project = await loadProject(root)
   if (project instanceof Error) return project
   const target = project.modules.find((module) => module.name === name)
-  if (!target) return fail(`Module ${name} is not installed`)
+  if (!target) {
+    const dependents = project.modules.filter((module) => module.dependencies.includes(name))
+    if (dependents.length) return fail(`Cannot remove ${name}; required by ${dependents.map((module) => module.name).join(", ")}`)
+    return fail(`Module ${name} is not installed`)
+  }
   const dependents = project.modules.filter((module) => module.dependencies.includes(name))
   if (dependents.length) return fail(`Cannot remove ${name}; required by ${dependents.map((module) => module.name).join(", ")}`)
-  const removing = new Set([name])
-  let changed = true
-  while (changed) {
-    changed = false
-    for (const module of project.modules) {
-      if (module.direct || removing.has(module.name)) continue
-      const dependents = project.modules.filter((entry) => entry.dependencies.includes(module.name))
-      if (dependents.every((dependent) => removing.has(dependent.name))) { removing.add(module.name); changed = true }
-    }
-  }
+  const retainedFiles = new Set(project.modules.filter((module) => module.name !== name).flatMap((module) => module.files))
   return await transaction(root, async () => {
-    for (const module of project.modules.filter((entry) => removing.has(entry.name))) for (const file of module.files) {
+    for (const file of target.files) {
+      if (retainedFiles.has(file)) continue
       const destination = path.join(agentsPath(root), file)
       const removed = await fs.rm(destination, { force: true }).catch((cause) => fail(`Cannot remove .agents/${file}`, cause))
       if (removed instanceof Error) return removed
       await removeEmptyParents(destination, agentsPath(root))
     }
-    return await saveManifest(root, { ...project, modules: project.modules.filter((module) => !removing.has(module.name)) })
+    return await saveManifest(root, { ...project, modules: project.modules.filter((module) => module.name !== name) })
   })
 }
 
@@ -242,24 +218,25 @@ export async function updateModule(root: string, name: string): Promise<null | E
     if (files instanceof Error) return files
     planned.push({ module, files })
   }
-  const refreshed = new Set(planned.map((item) => item.module.manifest.name))
-  const obsolete = dependencyClosure(project, name)
-  for (const refreshedName of refreshed) obsolete.delete(refreshedName)
-  const replacing = new Set([...refreshed, ...removableDependencies(project, obsolete, refreshed)])
-  const preflight = await installPreflight(root, project, planned, replacing)
+  const preflight = await installPreflight(root, project, planned, new Set([name]))
   if (preflight instanceof Error) return preflight
+  const requested = planned.find((item) => item.module.manifest.name === name)
+  if (!requested) return fail(`Module ${name} was not resolved`)
+  const installedFiles = [...new Set(planned.flatMap((item) => item.files))].sort()
+  const retainedFiles = new Set(project.modules.filter((module) => module.name !== name).flatMap((module) => module.files))
   const next = structuredClone(project)
   return await transaction(root, async () => {
-    for (const prior of project.modules.filter((module) => replacing.has(module.name))) for (const file of prior.files) {
+    for (const file of installed.files) {
+      if (retainedFiles.has(file)) continue
       const removed = await fs.rm(path.join(agentsPath(root), file), { force: true }).catch((cause) => fail(`Cannot replace .agents/${file}`, cause))
       if (removed instanceof Error) return removed
     }
-    next.modules = next.modules.filter((module) => !replacing.has(module.name))
+    next.modules = next.modules.filter((module) => module.name !== name)
     for (const item of planned) {
       const copied = await installPayload(root, item.module, item.files)
       if (copied instanceof Error) return copied
-      const prior = project.modules.find((module) => module.name === item.module.manifest.name)
-      next.modules.push({ name: item.module.manifest.name, direct: prior?.direct ?? item.module.manifest.name === name, source: item.module.source, dependencies: item.module.manifest.dependencies, files: item.files })
+      if (item.module.manifest.name !== name) continue
+      next.modules.push({ name, source: requested.module.source, dependencies: requested.module.manifest.dependencies, files: installedFiles })
     }
     return await saveManifest(root, next)
   })

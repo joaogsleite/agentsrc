@@ -31,16 +31,12 @@ export async function validateProject(root: string, strict = false): Promise<Val
   if (!(await hasManagedGitignore(root))) errors.push("Missing or invalid agentsrc managed .gitignore block")
   errors.push(...await validateSkillLayout(root))
   const names = new Set<string>()
-  const files = new Set<string>()
   for (const module of modules) {
     if (names.has(module.name)) errors.push(`Duplicate module registry entry: ${module.name}`)
     names.add(module.name)
-    for (const dependency of module.dependencies) if (!modules.some((candidate) => candidate.name === dependency)) errors.push(`${module.name} depends on missing module ${dependency}`)
     if (module.source?.local && path.isAbsolute(module.source.local)) errors.push(`Local module source must be project-relative: ${module.name}`)
     for (const file of module.files) {
       if (!isSafeRelativePath(file) || file === ".agentsrc.json" || file.startsWith("state/")) errors.push(`Unsafe installed module path: ${module.name}/${file}`)
-      if (files.has(file)) errors.push(`Module destination collision: ${file}`)
-      files.add(file)
       const destination = path.join(agentsPath(root), file)
       const stat = await fs.lstat(destination).catch(() => null)
       if (!stat) errors.push(`Missing module file: .agents/${file}`)

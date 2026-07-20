@@ -81,7 +81,7 @@ export function createCli() {
     .action(async (_options, { console, process }) => {
       const project = await loadProject(process.cwd)
       if (project instanceof Error) { console.error(project.message); process.exit(1); return }
-      console.log(project.modules.length ? project.modules.map((module) => `${module.name}${module.direct ? "" : " (dependency)"}`).join("\n") : "No modules installed")
+      console.log(project.modules.length ? project.modules.map((module) => module.name).join("\n") : "No modules installed")
       const validation = await validateProject(process.cwd)
       printValidation(validation, console)
       if (validation.errors.length) { process.exit(1); return }
@@ -105,7 +105,7 @@ export function createCli() {
     .action(async (_options, { console, process }) => {
       const project = await loadProject(process.cwd)
       if (project instanceof Error) { console.error(project.message); process.exit(1); return }
-      console.log(project.modules.length ? project.modules.map((module) => `${module.name}\t${module.direct ? "direct" : "dependency"}\t${module.files.length} files`).join("\n") : "No modules installed")
+      console.log(project.modules.length ? project.modules.map((module) => `${module.name}\t${module.files.length} files`).join("\n") : "No modules installed")
     })
   cli.command("module remove <name>", "Remove a module when no installed module depends on it")
     .action(async (name, _options, { console, process }) => {

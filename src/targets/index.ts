@@ -32,7 +32,7 @@ async function materialize(root: string, stage: string, plan: TargetPlan, files:
   for (const copy of plan.copies) {
     const source = path.join(root, ".agents", copy.from)
     if (!(await exists(source))) continue
-    const result = await copyTree(source, path.join(stage, copy.to))
+    const result = await copyTree(source, path.join(stage, copy.to), true)
     if (result instanceof Error) return result
   }
   for (const file of files) {

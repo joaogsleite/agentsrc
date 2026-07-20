@@ -20,6 +20,6 @@ Every path except `module.json` installs to the same relative path beneath a cli
 }
 ```
 
-Names use lowercase letters, numbers, and hyphens. Dependencies resolve from the same source repository before falling back to the AgentSrc catalog. Keep module files portable: the CLI installs local sources as relative symlinks and downloaded sources as copied files.
+Names use lowercase letters, numbers, and hyphens. Dependencies resolve from the same source repository before falling back to the AgentSrc catalog. Dependency payloads are installed with the requested module but are not separate project-manifest entries. Keep module files portable: the CLI installs local sources as relative symlinks and downloaded sources as copied files.
 
 Test modules with a temporary client project using `agentsrc module add`, `agentsrc validate --strict`, `agentsrc module update`, and `agentsrc module remove`.

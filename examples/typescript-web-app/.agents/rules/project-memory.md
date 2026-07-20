@@ -1,0 +1,1 @@
+../../../../modules/memory-system/rules/project-memory.md

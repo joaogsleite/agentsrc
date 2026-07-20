@@ -8,7 +8,6 @@ export interface ModuleSource {
 
 export interface InstalledModule {
   name: string
-  direct: boolean
   source?: ModuleSource
   dependencies: string[]
   files: string[]

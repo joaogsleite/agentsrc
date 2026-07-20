@@ -32,6 +32,8 @@ describe("agentsrc CLI", () => {
     directories.push(project)
     await agentsrc(project, "init", "--targets", "opencode")
     await agentsrc(project, "module", "add", "memory-system")
+    const registry = JSON.parse(await fs.readFile(path.join(project, ".agents", ".agentsrc.json"), "utf8")) as { modules: Array<{ name: string; source?: unknown }> }
+    expect(registry.modules.find((module) => module.name === "memory-system")?.source).toBeUndefined()
     await fs.writeFile(path.join(project, ".env"), "GITHUB_TOKEN=example-token\n")
     await fs.writeFile(path.join(project, ".agents", "mcps", "github.json"), JSON.stringify({ name: "github", transport: { type: "stdio", command: "npx", args: ["-y", "@github/github-mcp-server"], env: ["GITHUB_TOKEN"] } }))
     await agentsrc(project, "generate")
@@ -57,6 +59,19 @@ describe("agentsrc CLI", () => {
     const installed = await fs.lstat(path.join(project, ".agents", "rules", "local.md"))
     expect(installed.isSymbolicLink()).toBe(true)
     await agentsrc(project, "validate", "--strict")
+  })
+
+  test("discovers local module links and materializes them in target output", async () => {
+    const project = await fs.mkdtemp(path.join(os.tmpdir(), "agentsrc-test-"))
+    directories.push(project)
+    await localModule(project, "workflow", { "rules/workflow.md": "# Linked Workflow\n", "skills/workflow/SKILL.md": "# Linked Skill\n" })
+    await agentsrc(project, "init", "--targets", "claude")
+    await agentsrc(project, "module", "add", "workflow", "--local", "./shared")
+    await agentsrc(project, "generate")
+    const instructions = await fs.readFile(path.join(project, "AGENTS.md"), "utf8")
+    const projectedSkill = await fs.lstat(path.join(project, ".claude", "skills", "workflow", "SKILL.md"))
+    expect(instructions).toContain("Linked Workflow")
+    expect(projectedSkill.isSymbolicLink()).toBe(false)
   })
 
   test("preflights collisions before installing any dependency payload", async () => {
@@ -113,8 +128,8 @@ describe("agentsrc CLI", () => {
     await localModule(project, "workflow", { "rules/workflow.md": "# Workflow\n" }, ["memory-system"])
     await agentsrc(project, "init")
     await agentsrc(project, "module", "add", "workflow", "--local", "./shared")
-    const manifest = JSON.parse(await fs.readFile(path.join(project, ".agents", ".agentsrc.json"), "utf8")) as { modules: Array<{ name: string; direct: boolean }> }
-    expect(manifest.modules).toEqual(expect.arrayContaining([expect.objectContaining({ name: "memory-system", direct: false }), expect.objectContaining({ name: "workflow", direct: true })]))
+    const manifest = JSON.parse(await fs.readFile(path.join(project, ".agents", ".agentsrc.json"), "utf8")) as { modules: Array<{ name: string; files: string[] }> }
+    expect(manifest.modules).toEqual([expect.objectContaining({ name: "workflow", files: expect.arrayContaining(["rules/project-memory.md", "rules/workflow.md"]) })])
   })
 
   test("rejects skill directories without SKILL.md", async () => {
@@ -130,7 +145,7 @@ describe("agentsrc CLI", () => {
     for (const name of ["typescript-web-app", "python-api-service", "go-cli-tool", "product-design-workflow"]) {
       const project = await fs.mkdtemp(path.join(os.tmpdir(), "agentsrc-example-"))
       directories.push(project)
-      await fs.cp(path.resolve("examples", name), project, { recursive: true })
+      await fs.cp(path.resolve("examples", name), project, { recursive: true, dereference: true })
       await agentsrc(project, "validate", "--strict")
       await agentsrc(project, "generate")
       await agentsrc(project, "generate", "--check")

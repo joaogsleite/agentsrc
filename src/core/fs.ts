@@ -75,8 +75,8 @@ export async function removeEmptyParents(file: string, stopAt: string) {
   }
 }
 
-export async function copyTree(source: string, destination: string): Promise<null | Error> {
-  const result = await fs.cp(source, destination, { recursive: true, dereference: false })
+export async function copyTree(source: string, destination: string, dereference = false): Promise<null | Error> {
+  const result = await fs.cp(source, destination, { recursive: true, dereference })
     .catch((cause) => fail(`Cannot copy ${source}`, cause))
   return result instanceof Error ? result : null
 }

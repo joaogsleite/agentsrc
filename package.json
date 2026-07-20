@@ -33,6 +33,7 @@
   "scripts": {
     "build": "tsc && chmod +x dist/cli.js",
     "test": "vitest run",
+    "test:examples": "npm run build && vitest run src/integration.test.ts",
     "check": "tsc --noEmit",
     "prepublishOnly": "rimraf dist \"*.tsbuildinfo\" && npm run build"
   },

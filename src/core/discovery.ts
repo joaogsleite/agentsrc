@@ -9,7 +9,17 @@ async function filesUnder(root: string, directory: string): Promise<string[] | E
   const base = path.join(root, ".agents", directory)
   const entries = await fs.readdir(base, { recursive: true, withFileTypes: true }).catch((error: NodeJS.ErrnoException) => error.code === "ENOENT" ? [] : fail(`Cannot read ${base}`, error))
   if (entries instanceof Error) return entries
-  return entries.filter((entry) => entry.isFile()).map((entry) => path.relative(path.join(root, ".agents"), path.join(entry.parentPath, entry.name))).sort()
+  const files: string[] = []
+  for (const entry of entries) {
+    const file = path.join(entry.parentPath, entry.name)
+    if (entry.isFile()) { files.push(path.relative(path.join(root, ".agents"), file)); continue }
+    if (!entry.isSymbolicLink()) continue
+    const target = await fs.stat(file).catch((cause) => fail(`Cannot resolve ${file}`, cause))
+    if (target instanceof Error) return target
+    if (!target.isFile()) return fail(`Canonical symlink must reference a file: ${file}`)
+    files.push(path.relative(path.join(root, ".agents"), file))
+  }
+  return files.sort()
 }
 
 async function textFiles(root: string, directory: string): Promise<Array<{ path: string; content: string }> | Error> {

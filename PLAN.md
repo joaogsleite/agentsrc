@@ -98,7 +98,6 @@ ignored.
   "modules": [
     {
       "name": "memory-system",
-      "direct": true,
       "files": [
         "rules/project-memory.md",
         "skills/project-memory/SKILL.md"
@@ -106,7 +105,6 @@ ignored.
     },
     {
       "name": "team-workflows",
-      "direct": true,
       "source": {
         "local": "../shared-agent-modules",
         "github": "acme/shared-agent-modules"
@@ -116,7 +114,6 @@ ignored.
     },
     {
       "name": "jira-tickets-workflow",
-      "direct": true,
       "source": { "github": "acme/shared-agent-modules" },
       "files": ["skills/jira-workflow/SKILL.md"]
     }
@@ -125,11 +122,12 @@ ignored.
 ```
 
 `modules` is the only module registry. Each entry records the module name, its
-optional source, whether it was directly requested, dependency names, and every
+optional source, dependency names, and every
 relative file path it installed below `.agents/`. It deliberately does not
 record versions, commits, hashes, or generated-output state.
 
-`source` is optional. Its optional `local` key is a path relative to the client
+`source` is optional. When it is omitted, the module is installed from the
+AgentSrc catalog. Its optional `local` key is a path relative to the client
 project; its optional `github` key is an `owner/repository` name. When both are
 set, `local` takes priority when it exists; otherwise `github` is used. Missing
 or empty `source` uses the AgentSrc GitHub repository.
@@ -188,13 +186,14 @@ the usable local source first, then its GitHub source. When a dependency is not
 present in that repository's `modules/` folder, it falls back to the AgentSrc
 catalog. Module names are globally unique; a dependency already installed from a
 different source is an error. Dependencies install before their dependents and
-are recorded with `direct: false`; an explicit `module add` sets `direct: true`.
+are installed with their payloads but are not recorded as module entries. The
+CLI infers them from the dependency lists of the recorded user-requested modules.
 
-`update` refreshes the requested module and its complete dependency closure.
-Afterward, it prunes dependencies that are no longer required by another module
-and are not direct installations. `remove` refuses to remove a module while
-another installed module depends on it, then applies the same orphan-dependency
-pruning. Cycles are errors.
+`update` refreshes the requested module and its complete dependency closure,
+then replaces the recorded aggregate payload file list. `remove` refuses to
+remove a requested module while another requested module names it as a
+dependency. Shared dependency files remain until no recorded module references
+them. Cycles are errors.
 
 The manifest update and filesystem changes must behave transactionally: validate
 and stage first, restore the prior payload if replacement fails, and write the
