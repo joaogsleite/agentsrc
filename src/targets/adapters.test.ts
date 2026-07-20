@@ -7,7 +7,7 @@ const project: CanonicalProject = {
   skills: [{ name: "release", path: "skills/release/SKILL.md", content: "# Release\n" }],
   agents: [{ name: "reviewer", path: "agents/reviewer.md", content: "# Reviewer\n" }],
   commands: [{ name: "ship", path: "commands/ship.md", content: "# Ship\n" }],
-  memories: [{ path: "memories/context.md", content: "# Context\n" }],
+  docsIndex: { path: "docs/INDEX.md", content: "# Project Documentation\n\n- [Context](context.md)\n" },
   mcps: [{ name: "github", transport: { type: "stdio", command: "npx", args: ["-y", "@github/github-mcp-server"], env: ["GITHUB_TOKEN"] } }],
 }
 
@@ -34,6 +34,21 @@ describe("target adapters", () => {
     expect(wrapper).toContain('. "$PROJECT_ROOT/.env"')
     expect(wrapper).toContain("export GITHUB_TOKEN")
     expect(wrapper).not.toContain("GITHUB_TOKEN=")
+  })
+
+  test("loads only the documentation index in OpenCode", () => {
+    const config = adapters.opencode.render(project).find((file) => file.path === "opencode.json")?.content
+    expect(config).toEqual(expect.objectContaining({ instructions: [".opencode/rules/agentsrc-source-of-truth.md", ".agents/rules/**/*.md", ".agents/docs/INDEX.md"] }))
+  })
+
+  test.each(Object.keys(adapters) as TargetName[])("%s projects built-in AgentSrc guidance", (target) => {
+    const copies = adapters[target].plan(project).copies
+    expect(copies).toEqual(expect.arrayContaining([{ from: "rules", to: `.${target}/rules`, source: "builtin" }, { from: "skills/manage-agentsrc", to: `.${target}/skills/manage-agentsrc`, source: "builtin" }]))
+  })
+
+  test.each(["codex", "gemini"] as const)("%s supports canonical skill fallback", (target) => {
+    const skillOnlyProject = { ...project, agents: [], commands: [] }
+    expect(adapters[target].validate(skillOnlyProject)).toEqual({ errors: [], warnings: [] })
   })
 
   test("uses each target's native MCP configuration shape", () => {

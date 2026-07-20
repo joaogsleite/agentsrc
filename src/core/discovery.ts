@@ -1,7 +1,7 @@
 import fs from "node:fs/promises"
 import path from "node:path"
 import { fail } from "../errors.ts"
-import type { CanonicalProject } from "../types.ts"
+import type { CanonicalProject, TargetName } from "../types.ts"
 import { isSafeRelativePath } from "./fs.ts"
 import { loadMcp } from "./manifest.ts"
 
@@ -37,15 +37,21 @@ async function textFiles(root: string, directory: string): Promise<Array<{ path:
   return text
 }
 
+async function documentationIndex(root: string): Promise<{ path: string; content: string } | Error> {
+  const relative = "docs/INDEX.md"
+  const content = await fs.readFile(path.join(root, ".agents", relative), "utf8").catch((cause: NodeJS.ErrnoException) => cause.code === "ENOENT" ? fail("Missing required .agents/docs/INDEX.md") : fail("Cannot read .agents/docs/INDEX.md", cause))
+  return content instanceof Error ? content : { path: relative, content }
+}
+
 export async function discover(root: string): Promise<CanonicalProject | Error> {
-  const [rules, skillsRaw, agentsRaw, commandsRaw, memories, mcpFiles] = await Promise.all([
-    textFiles(root, "rules"), textFiles(root, "skills"), textFiles(root, "agents"), textFiles(root, "commands"), textFiles(root, "memories"), filesUnder(root, "mcps"),
+  const [rules, skillsRaw, agentsRaw, commandsRaw, docsIndex, mcpFiles] = await Promise.all([
+    textFiles(root, "rules"), textFiles(root, "skills"), textFiles(root, "agents"), textFiles(root, "commands"), documentationIndex(root), filesUnder(root, "mcps"),
   ])
   if (rules instanceof Error) return rules
   if (skillsRaw instanceof Error) return skillsRaw
   if (agentsRaw instanceof Error) return agentsRaw
   if (commandsRaw instanceof Error) return commandsRaw
-  if (memories instanceof Error) return memories
+  if (docsIndex instanceof Error) return docsIndex
   if (mcpFiles instanceof Error) return mcpFiles
   const skills = skillsRaw.filter((item) => path.basename(item.path) === "SKILL.md").map((item) => ({ ...item, name: path.basename(path.dirname(item.path)) }))
   const agents = agentsRaw.map((item) => ({ ...item, name: path.basename(item.path, path.extname(item.path)) }))
@@ -64,17 +70,26 @@ export async function discover(root: string): Promise<CanonicalProject | Error> 
     if (mcp instanceof Error) return mcp
     validMcps.push(mcp)
   }
-  return { rules, skills, agents, commands, memories, mcps: validMcps }
+  return { rules, skills, agents, commands, docsIndex, mcps: validMcps }
 }
 
-export function renderInstructions(project: CanonicalProject) {
+export function renderInstructions(_project: CanonicalProject, target?: TargetName) {
+  const rule = target ? `.${target}/rules/agentsrc-source-of-truth.md` : "the generated target-local `rules/agentsrc-source-of-truth.md` file"
+  const skill = target ? `.${target}/skills/manage-agentsrc/SKILL.md` : "the generated target-local `skills/manage-agentsrc/SKILL.md` file"
   const sections = [
     "# Project Agent Instructions",
     "",
-    "Agent configuration, durable memory, and scratch state belong under `.agents/`. Do not create agent runtime data in generated target directories or the repository root.",
-    ...project.rules.flatMap((rule) => ["", `## ${rule.path}`, "", rule.content.trim()]),
-    ...(project.memories.length ? ["", "## Durable Memory", "", ...project.memories.map((memory) => `- \.agents/${memory.path}`)] : []),
-    ...(project.skills.length ? ["", "## Skills", "", ...project.skills.map((skill) => `- **${skill.name}**: \.agents/${skill.path}`)] : []),
+    "`.agents/` is the canonical source for project agent configuration. Do not edit generated target files.",
+    "",
+    "Before substantive project work:",
+    "",
+    "- Read `.agents/docs/INDEX.md`, then load only the linked documentation relevant to the task.",
+    "- Read every Markdown file under `.agents/rules/` and treat it as project instruction.",
+    "- When the user explicitly requests a workflow, load the relevant `.agents/skills/*/SKILL.md` file.",
+    "",
+    "When changing AgentSrc-managed configuration, first read `" + rule + "` and `" + skill + "`.",
+    "",
+    "Keep durable project documentation in `.agents/docs/`, session reports in `.agents/sessions/`, and temporary scratch state in `.agents/state/`. Do not create agent runtime data in generated target directories or the repository root.",
   ]
   return `${sections.join("\n").trim()}\n`
 }

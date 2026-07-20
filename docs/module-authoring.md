@@ -10,7 +10,7 @@ modules/release-workflow/
   skills/release/scripts/check.sh
 ```
 
-Every path except `module.json` installs to the same relative path beneath a client project's `.agents/` directory. Module payloads cannot write `.agents/.agentsrc.json` or `.agents/state/`.
+Every path except `module.json` installs to the same relative path beneath a client project's `.agents/` directory. Module payloads cannot write `.agents/.agentsrc.json`, `.agents/docs/`, `.agents/sessions/`, or `.agents/state/`; those paths are user-owned project knowledge or runtime data.
 
 ```json
 {

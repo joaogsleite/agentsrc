@@ -92,7 +92,7 @@ async function payload(module: ResolvedModule): Promise<string[] | Error> {
   const files = await listPayload(module.root)
   if (files instanceof Error) return files
   const result = files.filter((file) => file !== "module.json")
-  for (const file of result) if (!isSafeRelativePath(file) || file === ".agentsrc.json" || file.startsWith("state/")) return fail(`Module ${module.manifest.name} has reserved destination ${file}`)
+  for (const file of result) if (!isSafeRelativePath(file) || file === ".agentsrc.json" || file.startsWith("docs/") || file.startsWith("sessions/") || file.startsWith("state/")) return fail(`Module ${module.manifest.name} has reserved destination ${file}`)
   return result
 }
 

@@ -7,7 +7,7 @@ export interface RenderedFile {
 
 export interface TargetPlan {
   outputs: string[]
-  copies: Array<{ from: string; to: string }>
+  copies: Array<{ from: string; to: string; source?: "agents" | "builtin" }>
 }
 
 export interface TargetAdapter {

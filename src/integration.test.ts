@@ -31,7 +31,11 @@ describe("agentsrc CLI", () => {
     const project = await fs.mkdtemp(path.join(os.tmpdir(), "agentsrc-test-"))
     directories.push(project)
     await agentsrc(project, "init", "--targets", "opencode")
+    expect((await fs.stat(path.join(project, ".agents", "docs", "INDEX.md"))).isFile()).toBe(true)
+    expect((await fs.stat(path.join(project, ".agents", "sessions"))).isDirectory()).toBe(true)
     await agentsrc(project, "module", "add", "memory-system")
+    await fs.writeFile(path.join(project, ".agents", "docs", "architecture.md"), "# Architecture\n\nThis must not be startup context.\n")
+    await fs.writeFile(path.join(project, ".agents", "docs", "INDEX.md"), "# Project Documentation\n\n- [Architecture](architecture.md)\n")
     const registry = JSON.parse(await fs.readFile(path.join(project, ".agents", ".agentsrc.json"), "utf8")) as { modules: Array<{ name: string; source?: unknown }> }
     expect(registry.modules.find((module) => module.name === "memory-system")?.source).toBeUndefined()
     await fs.writeFile(path.join(project, ".env"), "GITHUB_TOKEN=example-token\n")
@@ -39,8 +43,16 @@ describe("agentsrc CLI", () => {
     await agentsrc(project, "generate")
     await agentsrc(project, "generate", "--check")
     const instructions = await fs.readFile(path.join(project, "AGENTS.md"), "utf8")
+    const config = JSON.parse(await fs.readFile(path.join(project, "opencode.json"), "utf8")) as { instructions: string[] }
+    const gitignore = await fs.readFile(path.join(project, ".gitignore"), "utf8")
     const wrapper = await fs.readFile(path.join(project, ".opencode", "agentsrc-mcps", "github.sh"), "utf8")
-    expect(instructions).toContain("Project Memory")
+    expect(instructions).toContain("Read `.agents/docs/INDEX.md`")
+    expect(instructions).toContain("Read every Markdown file under `.agents/rules/`")
+    expect(instructions).not.toContain("This must not be startup context")
+    expect(config.instructions).toEqual([".opencode/rules/agentsrc-source-of-truth.md", ".agents/rules/**/*.md", ".agents/docs/INDEX.md"])
+    expect((await fs.stat(path.join(project, ".opencode", "rules", "agentsrc-source-of-truth.md"))).isFile()).toBe(true)
+    expect((await fs.stat(path.join(project, ".opencode", "skills", "manage-agentsrc", "SKILL.md"))).isFile()).toBe(true)
+    expect(gitignore).toContain(".agents/sessions/")
     expect(wrapper).toContain('. "$PROJECT_ROOT/.env"')
     expect(wrapper).not.toContain("example-token")
     await fs.appendFile(path.join(project, "AGENTS.md"), "drift\n")
@@ -70,7 +82,9 @@ describe("agentsrc CLI", () => {
     await agentsrc(project, "generate")
     const instructions = await fs.readFile(path.join(project, "AGENTS.md"), "utf8")
     const projectedSkill = await fs.lstat(path.join(project, ".claude", "skills", "workflow", "SKILL.md"))
-    expect(instructions).toContain("Linked Workflow")
+    const projectedSkillContent = await fs.readFile(path.join(project, ".claude", "skills", "workflow", "SKILL.md"), "utf8")
+    expect(instructions).toContain("Read every Markdown file under `.agents/rules/`")
+    expect(projectedSkillContent).toContain("Linked Skill")
     expect(projectedSkill.isSymbolicLink()).toBe(false)
   })
 
@@ -83,6 +97,29 @@ describe("agentsrc CLI", () => {
     await fs.writeFile(path.join(project, ".agents", "rules", "existing.md"), "# User-owned\n")
     await expect(agentsrc(project, "module", "add", "workflow", "--local", "./shared")).rejects.toMatchObject({ stderr: expect.stringContaining("already occupied") })
     await expect(fs.lstat(path.join(project, ".agents", "rules", "dependency.md"))).rejects.toMatchObject({ code: "ENOENT" })
+  })
+
+  test("reserves user-owned documentation and session paths from modules", async () => {
+    const project = await fs.mkdtemp(path.join(os.tmpdir(), "agentsrc-test-"))
+    directories.push(project)
+    await localModule(project, "workflow", { "docs/guide.md": "# Guide\n" })
+    await agentsrc(project, "init")
+    await expect(agentsrc(project, "module", "add", "workflow", "--local", "./shared")).rejects.toMatchObject({ stderr: expect.stringContaining("reserved destination") })
+  })
+
+  test("validates memory-system workflows across all targets", async () => {
+    const project = await fs.mkdtemp(path.join(os.tmpdir(), "agentsrc-test-"))
+    directories.push(project)
+    await agentsrc(project, "init", "--targets", "claude,codex,gemini,opencode")
+    await agentsrc(project, "module", "add", "memory-system")
+    await agentsrc(project, "validate", "--strict")
+    await agentsrc(project, "generate")
+    for (const target of ["claude", "codex", "gemini", "opencode"]) {
+      expect((await fs.stat(path.join(project, `.${target}`, "rules", "agentsrc-source-of-truth.md"))).isFile()).toBe(true)
+      expect((await fs.stat(path.join(project, `.${target}`, "skills", "manage-agentsrc", "SKILL.md"))).isFile()).toBe(true)
+    }
+    expect(await fs.readFile(path.join(project, "AGENTS.md"), "utf8")).toContain(".codex/rules/agentsrc-source-of-truth.md")
+    expect(await fs.readFile(path.join(project, "GEMINI.md"), "utf8")).toContain(".gemini/rules/agentsrc-source-of-truth.md")
   })
 
   test("updates a local module transactionally and removes stale payload files", async () => {

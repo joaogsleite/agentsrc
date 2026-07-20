@@ -41,6 +41,6 @@ export interface CanonicalProject {
   skills: Array<{ name: string; path: string; content: string }>
   agents: Array<{ name: string; path: string; content: string }>
   commands: Array<{ name: string; path: string; content: string }>
-  memories: Array<{ path: string; content: string }>
+  docsIndex: { path: string; content: string }
   mcps: McpServer[]
 }

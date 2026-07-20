@@ -75,18 +75,25 @@ ignored by each example's managed `.gitignore` block.
   mcps/<server>.json               # One portable MCP server per file
   rules/
   skills/<skill>/                  # SKILL.md plus optional scripts/assets
-  memories/                        # Durable project knowledge
+  docs/                            # Durable, tracked project documentation
+  docs/INDEX.md                    # Concise entry point for coding sessions
+  sessions/                        # Append-only session reports
   state/                           # Local runtime state and caches
 ```
 
-`.agents/` is the canonical location for all agent definitions, memories, and
-agent runtime data. `init` creates a rule requiring agents to store internal
-state, scratch data, and durable memory under `.agents/`, never in target
+`.agents/` is the canonical location for all agent definitions, project
+documentation, and agent runtime data. `init` creates a rule requiring agents
+to store session reports, scratch data, and durable documentation under `.agents/`, never in target
 directories or the project root.
 
-`.agents/` is the only tracked agent-configuration tree. `.agents/state/` is
-ignored because it is local runtime data; generated target output is always
+`.agents/docs/` is tracked project knowledge. `.agents/sessions/` and `.agents/state/` are
+ignored because they contain local runtime data; generated target output is always
 ignored.
+
+Generated target output also contains package-owned AgentSrc guidance. It directs
+agents to edit canonical `.agents/` sources and regenerate output rather than
+modifying `.claude/`, `.codex/`, `.gemini/`, `.opencode/`, or generated root
+instruction files directly.
 
 ### Project Manifest
 
@@ -141,7 +148,7 @@ required metadata is `module.json`:
 {
   "$schema": "https://raw.githubusercontent.com/joaogsleite/agentsrc/main/src/schemas/module-v1.json",
   "name": "memory-system",
-  "description": "Persistent project memory workflows.",
+  "description": "Session reporting and curated project documentation workflows.",
   "dependencies": []
 }
 ```
@@ -149,14 +156,14 @@ required metadata is `module.json`:
 Module installation is a generic filesystem merge. Except for `module.json`,
 every payload path under `modules/<module-name>/` maps to the same relative path
 under `.agents/`; directories are created as needed. The installer has no skill,
-rule, command, MCP, or memory specific behavior. For example:
+rule, command, MCP, or documentation specific behavior. For example:
 
 ```text
 modules/memory-system/skills/project-memory/SKILL.md
 .agents/skills/project-memory/SKILL.md
 ```
 
-Reserved destinations are `.agents/.agentsrc.json` and `.agents/state/`.
+Reserved destinations are `.agents/.agentsrc.json`, `.agents/docs/`, `.agents/sessions/`, and `.agents/state/`.
 Modules cannot install into either. The installer rejects absolute paths,
 directory traversal, symlinks that escape the source root, and destination-path
 collisions.

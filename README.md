@@ -49,11 +49,33 @@ Pin the Git dependency to a release tag or commit SHA when reproducibility matte
   mcps/                # One portable MCP server per JSON file
   rules/               # Project instructions
   skills/<name>/       # SKILL.md and optional scripts/assets
-  memories/            # Durable project knowledge
-  state/               # Local runtime state, always ignored
+  docs/                # Durable, tracked project documentation
+  docs/INDEX.md        # Concise entry point for every coding session
+  sessions/            # Append-only session reports, always ignored
+  state/               # Temporary scratch state, always ignored
 ```
 
-`init` creates this layout, adds a storage rule, and owns the generated block in `.gitignore`. Agent scratch data and durable memory belong under `.agents/`, not at the repository root or in generated target directories.
+`init` creates this layout, adds a storage rule, and owns the generated block in `.gitignore`. Project documentation belongs under `.agents/docs/`; session reports and scratch data belong under `.agents/`, not at the repository root or in generated target directories.
+
+## Generated Configuration
+
+AgentSrc projects a built-in source-of-truth rule and `manage-agentsrc` skill into every selected target folder. They instruct coding agents to edit only `.agents/`, validate with `npm run agents -- validate --strict`, and regenerate with `npm run agents -- generate`. Generated output is disposable: agents must not edit `.claude/`, `.codex/`, `.gemini/`, `.opencode/`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `opencode.json`, or `.mcp.json` directly.
+
+## Session Documentation
+
+Install the optional `memory-system` module to establish a portable session-to-documentation workflow:
+
+```sh
+npm run agents -- module add memory-system
+```
+
+Generated `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` are small bootstraps: they instruct agents to read the live documentation index and current rules from `.agents/`, rather than embedding stale copies. The module instructs agents to record concise, append-only reports under `.agents/sessions/` and to use `.agents/docs/INDEX.md` as the durable documentation entry point. Session reports are ignored; documentation is tracked. Consolidation is deliberately user-invoked so routine implementation details do not become permanent context:
+
+```text
+/project-memory consolidate <session paths or date range>
+```
+
+The skill promotes only verified, high-value decisions, architecture, patterns, constraints, and recurring user feedback. It leaves documentation unchanged when no durable improvement is warranted. Targets without skill support follow the same workflow when asked to consolidate session documentation.
 
 ## Project Manifest
 

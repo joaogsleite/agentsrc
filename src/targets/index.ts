@@ -1,5 +1,6 @@
 import fs from "node:fs/promises"
 import path from "node:path"
+import { fileURLToPath } from "node:url"
 import { fail } from "../errors.ts"
 import { renderInstructions } from "../core/discovery.ts"
 import { copyTree, exists } from "../core/fs.ts"
@@ -17,6 +18,8 @@ export const adapters: Record<TargetName, TargetAdapter> = {
   opencode: opencodeAdapter,
 }
 
+const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..")
+
 async function write(file: string, content: string | object) {
   const value = typeof content === "string" ? content : `${JSON.stringify(content, null, 2)}\n`
   const result = await fs.mkdir(path.dirname(file), { recursive: true }).then(() => fs.writeFile(file, value)).catch((cause) => fail(`Cannot write ${file}`, cause))
@@ -30,7 +33,7 @@ async function materialize(root: string, stage: string, plan: TargetPlan, files:
     if (result instanceof Error) return result
   }
   for (const copy of plan.copies) {
-    const source = path.join(root, ".agents", copy.from)
+    const source = copy.source === "builtin" ? path.join(packageRoot, "src", "builtin", copy.from) : path.join(root, ".agents", copy.from)
     if (!(await exists(source))) continue
     const result = await copyTree(source, path.join(stage, copy.to), true)
     if (result instanceof Error) return result
@@ -112,7 +115,8 @@ async function renderTarget(root: string, adapter: TargetAdapter, project: Canon
 }
 
 export async function generateTargets(root: string, targets: TargetName[], project: CanonicalProject, check: boolean) {
-  const base = await renderPlan(root, "agents", { outputs: ["AGENTS.md"], copies: [] }, [{ path: "AGENTS.md", content: renderInstructions(project) }], check)
+  const rootTarget = targets.includes("codex") ? "codex" : undefined
+  const base = await renderPlan(root, "agents", { outputs: ["AGENTS.md"], copies: [] }, [{ path: "AGENTS.md", content: renderInstructions(project, rootTarget) }], check)
   if (base instanceof Error) return base
   for (const target of targets) {
     const result = await renderTarget(root, adapters[target], project, check)

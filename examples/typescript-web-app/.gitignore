@@ -1,4 +1,5 @@
 # BEGIN agentsrc generated
+.agents/sessions/
 .agents/state/
 .claude/
 .codex/

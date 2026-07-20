@@ -62,4 +62,4 @@ export async function hasManagedGitignore(root: string): Promise<boolean> {
   return blocks.length === 1 && blocks[0] === managedGitignoreBlock
 }
 
-export const managedGitignoreBlock = ["# BEGIN agentsrc generated", ".agents/state/", ".claude/", ".codex/", ".gemini/", ".opencode/", "AGENTS.md", "CLAUDE.md", "GEMINI.md", "opencode.json", ".mcp.json", "# END agentsrc generated"].join("\n")
+export const managedGitignoreBlock = ["# BEGIN agentsrc generated", ".agents/sessions/", ".agents/state/", ".claude/", ".codex/", ".gemini/", ".opencode/", "AGENTS.md", "CLAUDE.md", "GEMINI.md", "opencode.json", ".mcp.json", "# END agentsrc generated"].join("\n")
