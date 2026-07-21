@@ -133,33 +133,6 @@ Use Docker Compose as the lifecycle manager for containerized dependencies and a
 6. If a Compose HTTP port collides, use a documented environment-variable port override when the project provides one. Do not rewrite tracked Compose files or stop another project. Report a hard-coded collision that the project does not support overriding.
 7. Record the Compose project, service names, ownership, resolved origin, and published port in runtime state. On stop, run `docker compose stop` only for services marked `started` by this workflow.
 
-### Next.js With A Compose Database
-
-When a Next.js project has `npm run dev` and a Compose `dev` profile for PostgreSQL:
-
-1. Reuse a live managed Next.js process when state confirms its local readiness.
-2. Otherwise start only the documented PostgreSQL service with its `dev` profile, such as `docker compose --profile dev up -d postgres`, and wait for it to be available.
-3. Allocate an available port and start Next.js as `npm run dev -- -H 127.0.0.1 -p <port>`. If the selected port races, retry with a newly allocated port.
-4. Store the PostgreSQL service ownership, Next.js PID or PM2 name, final port, and `http://127.0.0.1:<port>` origin in state before opening the tunnel.
-
-### WordPress With Compose
-
-When Compose defines PHP, MySQL, and Nginx services:
-
-1. Inspect `docker compose ps`; if the required services are running, reuse them and derive the Nginx published HTTP port.
-2. Otherwise run the documented Compose command to start the application stack, normally `docker compose up -d`, and wait for MySQL and Nginx readiness.
-3. Use the Nginx host port as the origin. Do not start `npm run dev`, PHP's built-in server, or a second Nginx process.
-4. Record ownership per Compose service and tunnel the Nginx origin only.
-
-### Vite Without A Database
-
-When the selected `package.json` script starts Vite:
-
-1. Allocate an available port for a new process.
-2. Start it with forwarded arguments: `npm run dev -- --host 127.0.0.1 --port <port> --strictPort`.
-3. If Vite reports the port as unavailable, allocate another port and retry. Do not allow Vite to silently choose an unrecorded port.
-4. Record the final port, PID or PM2 name, origin, readiness URL, command, and log path before opening the tunnel.
-
 ## Persistent Tunnel
 
 Use this path only when the user explicitly requests a persistent hostname.
