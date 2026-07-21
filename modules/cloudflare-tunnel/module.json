@@ -1,0 +1,6 @@
+{
+  "$schema": "https://raw.githubusercontent.com/joaogsleite/agentsrc/main/schemas/module-v1.json",
+  "name": "cloudflare-tunnel",
+  "description": "Development Cloudflare Tunnel lifecycle workflow.",
+  "dependencies": []
+}
