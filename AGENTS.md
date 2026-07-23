@@ -85,14 +85,15 @@ modules/<module-name>/
 Module rules:
 
 - Use lowercase hyphenated names for module names and manifest dependencies.
-- Every payload path must install below a canonical module directory: `agents/`, `commands/`, `mcps/`, `rules/`, or `skills/`. Do not create arbitrary top-level `.agents/` directories.
+- Every payload path must install below a canonical module directory: `agents/`, `commands/`, `config/`, `mcps/`, `rules/`, or `skills/`. Do not create arbitrary top-level `.agents/` directories.
 - Do not add install hooks, adapter code, package dependencies, or automatic executable setup.
-- Never include `.agentsrc.json`, `artifacts/`, `config/`, `docs/`, or `state/` in a module payload. Those destinations are owned by the consumer project at runtime.
-- A module skill may instruct an agent to create or update consumer-owned `.agents/artifacts/`, `.agents/config/`, `.agents/docs/`, or `.agents/state/` files when the user explicitly invokes that workflow; the module source itself must not ship those files.
-- Keep modules portable. Local sources install as relative symlinks; catalog and GitHub sources install as copies.
+- Never include `.agentsrc.json`, `artifacts/`, `docs/`, or `state/` in a module payload. Those destinations are owned by the consumer project at runtime.
+- A module may include a non-secret initial configuration file under `config/`. The CLI copies it only when the consumer file is absent; it never overwrites, symlinks, or removes consumer configuration.
+- A module skill may instruct an agent to create or update consumer-owned `.agents/artifacts/`, `.agents/config/`, `.agents/docs/`, or `.agents/state/` files when the user explicitly invokes that workflow.
+- Keep modules portable. Local non-config sources install as relative symlinks; local config files and catalog or GitHub sources install as copies.
 - Keep module-specific tests out of `src/`. Test the module manually in a temporary consumer project with `agentsrc module add`, `validate --strict`, `generate`, `module update`, and `module remove` when applicable.
 
-Write skills for agents: state trigger conditions in frontmatter, use imperative instructions, include concrete commands, preserve project conventions, and keep mutable runtime details in state rather than durable configuration.
+Write skills for agents: state trigger conditions in frontmatter, use imperative instructions, include concrete commands, preserve project conventions, and keep mutable runtime details in state rather than durable configuration. Every module skill must document a safe project-root `.env` command wrapper for commands that need environment variables; it must not source or evaluate `.env`, expose secret values, or let `.env` override inherited environment values.
 
 ## TypeScript And CLI Conventions
 

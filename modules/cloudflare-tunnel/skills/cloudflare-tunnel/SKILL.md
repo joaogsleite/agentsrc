@@ -6,6 +6,26 @@ description: Start, inspect, restart, and stop temporary or persistent Cloudflar
 
 Use this workflow only when the user asks to create or manage a Cloudflare Tunnel. Expose only the local service the user requested. Never run a production build or production server: use the project's development command.
 
+## Project Environment
+
+When a command requires an environment variable, run it through this helper. It loads the project-root `.env` when present without sourcing or evaluating it, preserves inherited environment values over `.env` values, and never prints secret values. Define it once for the current shell session, then use it for every credential-dependent command.
+
+```sh
+with_project_env() {
+  if [ -f .env ]; then
+    node --env-file=.env -e '
+      const { spawn } = require("node:child_process")
+      const [command, ...args] = process.argv.slice(1)
+      const child = spawn(command, args, { stdio: "inherit", env: process.env })
+      child.once("error", (error) => { console.error(error.message); process.exit(1) })
+      child.once("exit", (code, signal) => process.exit(code ?? (signal ? 1 : 0)))
+    ' -- "$@"
+  else
+    "$@"
+  fi
+}
+```
+
 ## Storage
 
 - `.agents/config/cloudflare-tunnel.json` is tracked, durable configuration for one persistent tunnel identity. Store only a hostname, token-variable name, and optional tunnel label. Never store an origin, port, process identifier, command, or secret value in it.

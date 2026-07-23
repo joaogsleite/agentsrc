@@ -1,0 +1,11 @@
+{
+  "$schema": "https://raw.githubusercontent.com/joaogsleite/agentsrc/main/schemas/module-v1.json",
+  "name": "github-issues",
+  "description": "Implement GitHub issues and open linked pull requests.",
+  "dependencies": [],
+  "files": [
+    "config/github-issues.json",
+    "skills/github-issues/SKILL.md",
+    "skills/github-issues/references/github-issues-config-v1.schema.json"
+  ]
+}

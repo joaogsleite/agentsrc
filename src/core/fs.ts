@@ -11,7 +11,11 @@ export function isSafeRelativePath(value: string) {
 }
 
 export function isModulePayloadPath(value: string) {
-  return ["agents/", "commands/", "mcps/", "rules/", "skills/"].some((directory) => value.startsWith(directory))
+  return ["agents/", "commands/", "config/", "mcps/", "rules/", "skills/"].some((directory) => value.startsWith(directory))
+}
+
+export function isModuleConfigPath(value: string) {
+  return value.startsWith("config/")
 }
 
 export function inside(root: string, candidate: string) {

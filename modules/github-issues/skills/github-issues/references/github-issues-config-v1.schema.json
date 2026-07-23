@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "agentsrc GitHub issues configuration v1",
+  "type": "object",
+  "required": ["formatVersion", "gh", "branchPrefix"],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "formatVersion": {
+      "const": 1
+    },
+    "gh": {
+      "type": "object",
+      "required": ["tokenEnv"],
+      "properties": {
+        "tokenEnv": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "repository": {
+      "type": "string",
+      "pattern": "^[^/\\s]+/[^/\\s]+$"
+    },
+    "baseBranch": {
+      "type": "string",
+      "minLength": 1
+    },
+    "branchPrefix": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$"
+    }
+  },
+  "additionalProperties": false
+}

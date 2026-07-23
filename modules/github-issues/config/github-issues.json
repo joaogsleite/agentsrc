@@ -1,0 +1,8 @@
+{
+  "$schema": "../skills/github-issues/references/github-issues-config-v1.schema.json",
+  "formatVersion": 1,
+  "gh": {
+    "tokenEnv": "GH_TOKEN"
+  },
+  "branchPrefix": "issue"
+}

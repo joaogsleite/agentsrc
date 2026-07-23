@@ -115,15 +115,52 @@ describe("agentsrc CLI", () => {
     expect(projectedSkill.isSymbolicLink()).toBe(false)
   })
 
-  test("preflights collisions before installing any dependency payload", async () => {
+  test("replaces existing non-config files during module installation", async () => {
     const project = await fs.mkdtemp(path.join(os.tmpdir(), "agentsrc-test-"))
     directories.push(project)
     await localModule(project, "dependency", { "rules/dependency.md": "# Dependency\n" })
     await localModule(project, "workflow", { "rules/existing.md": "# Workflow\n" }, ["dependency"])
     await agentsrc(project, "init")
     await fs.writeFile(path.join(project, ".agents", "rules", "existing.md"), "# User-owned\n")
-    await expect(agentsrc(project, "module", "add", "workflow", "--local", "./shared")).rejects.toMatchObject({ stderr: expect.stringContaining("already occupied") })
-    await expect(fs.lstat(path.join(project, ".agents", "rules", "dependency.md"))).rejects.toMatchObject({ code: "ENOENT" })
+    await agentsrc(project, "module", "add", "workflow", "--local", "./shared")
+    expect(await fs.readFile(path.join(project, ".agents", "rules", "existing.md"), "utf8")).toBe("# Workflow\n")
+    expect((await fs.lstat(path.join(project, ".agents", "rules", "dependency.md"))).isSymbolicLink()).toBe(true)
+  })
+
+  test("copies config payloads once and preserves them through update and removal", async () => {
+    const project = await fs.mkdtemp(path.join(os.tmpdir(), "agentsrc-test-"))
+    directories.push(project)
+    await localModule(project, "workflow", {
+      "config/workflow.json": "{\"version\":1}\n",
+      "rules/workflow.md": "# Workflow\n",
+    })
+    await agentsrc(project, "init")
+    await agentsrc(project, "module", "add", "workflow", "--local", "./shared")
+    const config = path.join(project, ".agents", "config", "workflow.json")
+    expect((await fs.lstat(config)).isSymbolicLink()).toBe(false)
+    expect(await fs.readFile(config, "utf8")).toBe("{\"version\":1}\n")
+    await fs.writeFile(config, "{\"version\":2}\n")
+    await fs.writeFile(path.join(project, "shared", "modules", "workflow", "config", "workflow.json"), "{\"version\":3}\n")
+    await fs.writeFile(path.join(project, "shared", "modules", "workflow", "config", "additional.json"), "{\"enabled\":true}\n")
+    await fs.writeFile(path.join(project, "shared", "modules", "workflow", "module.json"), JSON.stringify({ name: "workflow", description: "workflow", dependencies: [], files: ["config/additional.json", "config/workflow.json", "rules/workflow.md"] }))
+    await commitLocalModules(project)
+    await agentsrc(project, "module", "update", "workflow")
+    expect(await fs.readFile(config, "utf8")).toBe("{\"version\":2}\n")
+    expect(await fs.readFile(path.join(project, ".agents", "config", "additional.json"), "utf8")).toBe("{\"enabled\":true}\n")
+    await agentsrc(project, "module", "remove", "workflow")
+    expect(await fs.readFile(config, "utf8")).toBe("{\"version\":2}\n")
+    expect(await fs.readFile(path.join(project, ".agents", "config", "additional.json"), "utf8")).toBe("{\"enabled\":true}\n")
+  })
+
+  test("rejects collisions with payloads owned by another module", async () => {
+    const project = await fs.mkdtemp(path.join(os.tmpdir(), "agentsrc-test-"))
+    directories.push(project)
+    await localModule(project, "first", { "rules/shared.md": "# First\n" })
+    await localModule(project, "second", { "rules/shared.md": "# Second\n" })
+    await agentsrc(project, "init")
+    await agentsrc(project, "module", "add", "first", "--local", "./shared")
+    await expect(agentsrc(project, "module", "add", "second", "--local", "./shared")).rejects.toMatchObject({ stderr: expect.stringContaining("Module destination collision") })
+    expect(await fs.readFile(path.join(project, ".agents", "rules", "shared.md"), "utf8")).toBe("# First\n")
   })
 
   test("rejects module payloads outside canonical directories", async () => {
@@ -155,6 +192,28 @@ describe("agentsrc CLI", () => {
     }
     expect(await fs.readFile(path.join(project, "AGENTS.md"), "utf8")).toContain(".codex/rules/agentsrc-source-of-truth.md")
     expect(await fs.readFile(path.join(project, "GEMINI.md"), "utf8")).toContain(".gemini/rules/agentsrc-source-of-truth.md")
+  })
+
+  test("installs the GitHub issues workflow with editable configuration", async () => {
+    const project = await fs.mkdtemp(path.join(os.tmpdir(), "agentsrc-test-"))
+    directories.push(project)
+    await localModule(project, "github-issues", {
+      "config/github-issues.json": await fs.readFile(path.resolve("modules/github-issues/config/github-issues.json"), "utf8"),
+      "skills/github-issues/SKILL.md": await fs.readFile(path.resolve("modules/github-issues/skills/github-issues/SKILL.md"), "utf8"),
+      "skills/github-issues/references/github-issues-config-v1.schema.json": await fs.readFile(path.resolve("modules/github-issues/skills/github-issues/references/github-issues-config-v1.schema.json"), "utf8"),
+    })
+    await agentsrc(project, "init", "--targets", "opencode")
+    await agentsrc(project, "module", "add", "github-issues", "--local", "./shared")
+    const config = path.join(project, ".agents", "config", "github-issues.json")
+    const skill = path.join(project, ".agents", "skills", "github-issues", "SKILL.md")
+    const schema = path.join(project, ".agents", "skills", "github-issues", "references", "github-issues-config-v1.schema.json")
+    expect(JSON.parse(await fs.readFile(config, "utf8"))).toMatchObject({ formatVersion: 1, gh: { tokenEnv: "GH_TOKEN" }, branchPrefix: "issue" })
+    expect((await fs.lstat(config)).isSymbolicLink()).toBe(false)
+    expect(await fs.readFile(skill, "utf8")).toContain("gh_with_token")
+    expect((await fs.stat(schema)).isFile()).toBe(true)
+    await agentsrc(project, "validate", "--strict")
+    await agentsrc(project, "generate")
+    await agentsrc(project, "generate", "--check")
   })
 
   test("updates a local module transactionally and removes stale payload files", async () => {

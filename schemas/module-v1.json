@@ -8,7 +8,11 @@
     "name": { "type": "string", "pattern": "^[a-z0-9-]+$" },
     "description": { "type": "string" },
     "dependencies": { "type": "array", "items": { "type": "string", "pattern": "^[a-z0-9-]+$" } },
-    "files": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+    "files": {
+      "description": "Module payload paths. Files under config/ seed non-secret consumer configuration once and are never overwritten or removed.",
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
   },
   "additionalProperties": false
 }

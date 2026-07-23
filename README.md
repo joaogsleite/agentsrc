@@ -72,6 +72,8 @@ Pin the Git dependency to a release tag or commit SHA when reproducibility matte
 
 `.agents/config/` is tracked shared configuration for durable agent-managed values, such as a stable tunnel domain. Do not store secrets there; use the project environment configuration for secret values.
 
+Modules may seed non-secret files under `.agents/config/`. `module add` and `module update` copy a declared config file only when it is absent; existing config is never overwritten, symlinked, or removed by module lifecycle commands.
+
 ## Generated Configuration
 
 agentsrc projects a built-in source-of-truth rule and `manage-agentsrc` skill into every selected target folder. They instruct coding agents to edit only `.agents/`, validate with `npm run agents -- validate --strict`, and regenerate with `npm run agents -- generate`. Generated output is disposable: agents must not edit `.claude/`, `.codex/`, `.gemini/`, `.opencode/`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `opencode.json`, or `.mcp.json` directly.

@@ -1,7 +1,7 @@
 import fs from "node:fs/promises"
 import path from "node:path"
 import { fail } from "../errors.ts"
-import { agentsPath, inside, isModulePayloadPath, isSafeRelativePath } from "./fs.ts"
+import { agentsPath, inside, isModuleConfigPath, isModulePayloadPath, isSafeRelativePath } from "./fs.ts"
 import { loadProject, hasManagedGitignore } from "./manifest.ts"
 import { installedModuleMetadata } from "../modules/index.ts"
 import { discover } from "./discovery.ts"
@@ -47,6 +47,7 @@ export async function validateProject(root: string, strict = false): Promise<Val
       const destination = path.join(agentsPath(root), file)
       const stat = await fs.lstat(destination).catch(() => null)
       if (!stat) errors.push(`Missing module file: .agents/${file}`)
+      if (isModuleConfigPath(file) && stat?.isSymbolicLink()) errors.push(`Module config must not be a symlink: .agents/${file}`)
       if (stat?.isSymbolicLink()) {
         const resolved = await fs.realpath(destination).catch(() => null)
         const sourceRoot = module.source?.local ? path.resolve(root, module.source.local, "modules", module.name) : null

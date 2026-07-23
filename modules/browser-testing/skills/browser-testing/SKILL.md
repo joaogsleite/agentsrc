@@ -6,6 +6,26 @@ description: Test a consumer project's implemented web behavior with agent-brows
 
 Use `agent-browser` to verify the behavior implemented in this project. Test the smallest affected flow in a documented local, preview, or dedicated test environment. Do not substitute unit tests for browser verification when the requested behavior is user-facing.
 
+## Project Environment
+
+When a command requires an environment variable, run it through this helper. It loads the project-root `.env` when present without sourcing or evaluating it, preserves inherited environment values over `.env` values, and never prints secret values. Define it once for the current shell session, then use it for every credential-dependent command.
+
+```sh
+with_project_env() {
+  if [ -f .env ]; then
+    node --env-file=.env -e '
+      const { spawn } = require("node:child_process")
+      const [command, ...args] = process.argv.slice(1)
+      const child = spawn(command, args, { stdio: "inherit", env: process.env })
+      child.once("error", (error) => { console.error(error.message); process.exit(1) })
+      child.once("exit", (code, signal) => process.exit(code ?? (signal ? 1 : 0)))
+    ' -- "$@"
+  else
+    "$@"
+  fi
+}
+```
+
 ## Read Project Guidance First
 
 1. Read `.agents/docs/INDEX.md`, every linked document relevant to local development and the changed feature, and every Markdown file under `.agents/rules/`.
@@ -54,9 +74,9 @@ agent-browser --session "$SESSION" auth login project-test-user
 2. If the documented test account exposes environment-variable names rather than a vault alias, resolve them without displaying their values and save a temporary vault entry with the password only on standard input. `TEST_EMAIL`, `TEST_PASSWORD`, `LOGIN_URL`, and `AUTH_PROFILE` below are placeholders for the documented values; never paste their resolved values into chat, source, configuration, or a command transcript.
 
 ```sh
-printf '%s' "$TEST_PASSWORD" | agent-browser auth save "$AUTH_PROFILE" \
+with_project_env sh -c 'printf "%s" "$TEST_PASSWORD" | agent-browser auth save "$AUTH_PROFILE" \
   --url "$LOGIN_URL" --username "$TEST_EMAIL" --password-stdin
-agent-browser --session "$SESSION" auth login "$AUTH_PROFILE"
+agent-browser --session "$SESSION" auth login "$AUTH_PROFILE"'
 ```
 
 3. Delete a temporary vault entry after the test. Do not delete a pre-existing documented alias.

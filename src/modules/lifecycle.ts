@@ -4,7 +4,7 @@ import path from "node:path"
 import { promisify } from "node:util"
 import { fileURLToPath } from "node:url"
 import * as errore from "errore"
-import { agentsPath, exists, isModulePayloadPath, isSafeRelativePath, listPayload, removeEmptyParents } from "../core/fs.ts"
+import { agentsPath, exists, isModuleConfigPath, isModulePayloadPath, isSafeRelativePath, listPayload, removeEmptyParents } from "../core/fs.ts"
 import { loadModule, loadProject, parseModule } from "../core/manifest.ts"
 import { fail } from "../errors.ts"
 import type { InstalledModule, ModuleManifest, ModuleSource, ProjectManifest } from "../types.ts"
@@ -178,8 +178,11 @@ async function installPayload(root: string, module: ResolvedModule, files: strin
   for (const file of files) {
     const from = path.join(module.root, file)
     const to = path.join(agentsPath(root), file)
-    if (await exists(to)) continue
-    const result = await fs.mkdir(path.dirname(to), { recursive: true }).then(async () => module.link ? await fs.symlink(path.relative(path.dirname(to), from), to) : await fs.copyFile(from, to)).catch((cause) => fail(`Cannot install .agents/${file}`, cause))
+    if (isModuleConfigPath(file) && await exists(to)) continue
+    const result = await fs.rm(to, { force: true })
+      .then(() => fs.mkdir(path.dirname(to), { recursive: true }))
+      .then(async () => module.link && !isModuleConfigPath(file) ? await fs.symlink(path.relative(path.dirname(to), from), to) : await fs.copyFile(from, to))
+      .catch((cause) => fail(`Cannot install .agents/${file}`, cause))
     if (result instanceof Error) return result
   }
   return null
@@ -242,10 +245,7 @@ async function installPreflight(root: string, project: ProjectManifest, metadata
       if (destinations.has(file)) return fail(`Module destination collision: ${file}`)
       destinations.add(file)
       const installedFile = project.modules.some((entry) => !replacing.has(entry.name) && metadata.get(entry.name)?.files.includes(file))
-      if (installedFile) continue
-      const destination = path.join(agentsPath(root), file)
-      const replaced = project.modules.some((entry) => replacing.has(entry.name) && metadata.get(entry.name)?.files.includes(file))
-      if (await exists(destination) && !replaced) return fail(`Module destination is already occupied: .agents/${file}`)
+      if (installedFile) return fail(`Module destination collision: ${file}`)
     }
   }
   return null
@@ -323,6 +323,7 @@ export async function removeModule(root: string, name: string): Promise<null | E
     for (const module of closure) {
       if (required.has(module)) continue
       for (const file of metadata.get(module)?.files ?? []) {
+        if (isModuleConfigPath(file)) continue
         if (retainedFiles.has(file)) continue
         const destination = path.join(agentsPath(root), file)
         const removed = await fs.rm(destination, { force: true }).catch((cause) => fail(`Cannot remove .agents/${file}`, cause))
@@ -363,6 +364,7 @@ export async function updateModule(root: string, name: string): Promise<null | E
     for (const module of oldClosure) {
       if (required.has(module)) continue
       for (const file of metadata.get(module)?.files ?? []) {
+        if (isModuleConfigPath(file)) continue
         if (retainedFiles.has(file)) continue
         const removed = await fs.rm(path.join(agentsPath(root), file), { force: true }).catch((cause) => fail(`Cannot replace .agents/${file}`, cause))
         if (removed instanceof Error) return removed
