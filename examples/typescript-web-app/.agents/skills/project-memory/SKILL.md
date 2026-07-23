@@ -1,1 +1,0 @@
-../../../../../modules/memory-system/skills/project-memory/SKILL.md

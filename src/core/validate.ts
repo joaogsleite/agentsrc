@@ -3,6 +3,7 @@ import path from "node:path"
 import { fail } from "../errors.ts"
 import { agentsPath, inside, isSafeRelativePath } from "./fs.ts"
 import { loadProject, hasManagedGitignore } from "./manifest.ts"
+import { installedModuleMetadata } from "../modules/index.ts"
 import { discover } from "./discovery.ts"
 import { adapters } from "../targets/index.ts"
 
@@ -28,6 +29,8 @@ export async function validateProject(root: string, strict = false): Promise<Val
   const manifest = await loadProject(root)
   if (manifest instanceof Error) return { errors: [manifest.message], warnings }
   const modules = manifest.modules
+  const moduleMetadata = await installedModuleMetadata(root, manifest)
+  if (moduleMetadata instanceof Error) errors.push(moduleMetadata.message)
   if (!(await hasManagedGitignore(root))) errors.push("Missing or invalid agentsrc managed .gitignore block")
   errors.push(...await validateSkillLayout(root))
   const names = new Set<string>()
@@ -35,8 +38,11 @@ export async function validateProject(root: string, strict = false): Promise<Val
     if (names.has(module.name)) errors.push(`Duplicate module registry entry: ${module.name}`)
     names.add(module.name)
     if (module.source?.local && path.isAbsolute(module.source.local)) errors.push(`Local module source must be project-relative: ${module.name}`)
-    for (const file of module.files) {
-      if (!isSafeRelativePath(file) || file === ".agentsrc.json" || file.startsWith("config/") || file.startsWith("docs/") || file.startsWith("sessions/") || file.startsWith("state/")) errors.push(`Unsafe installed module path: ${module.name}/${file}`)
+    if (moduleMetadata instanceof Error) continue
+    const state = moduleMetadata.get(module.name)
+    if (!state) { errors.push(`Missing module metadata: ${module.name}`); continue }
+    for (const file of state.files) {
+      if (!isSafeRelativePath(file) || file === ".agentsrc.json" || file.startsWith(".agentsrc/") || file.startsWith("config/") || file.startsWith("docs/") || file.startsWith("sessions/") || file.startsWith("state/")) errors.push(`Unsafe installed module path: ${module.name}/${file}`)
       const destination = path.join(agentsPath(root), file)
       const stat = await fs.lstat(destination).catch(() => null)
       if (!stat) errors.push(`Missing module file: .agents/${file}`)
@@ -48,17 +54,6 @@ export async function validateProject(root: string, strict = false): Promise<Val
       }
     }
   }
-  const visiting = new Set<string>()
-  const visited = new Set<string>()
-  function walk(name: string) {
-    if (visiting.has(name)) { errors.push(`Module dependency cycle includes ${name}`); return }
-    if (visited.has(name)) return
-    visiting.add(name)
-    const entry = modules.find((module) => module.name === name)
-    entry?.dependencies.forEach(walk)
-    visiting.delete(name); visited.add(name)
-  }
-  modules.forEach((module) => walk(module.name))
   const canonical = await discover(root)
   if (canonical instanceof Error) errors.push(canonical.message)
   if (canonical instanceof Error) return { errors, warnings }

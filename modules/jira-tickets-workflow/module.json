@@ -2,5 +2,8 @@
   "$schema": "https://raw.githubusercontent.com/joaogsleite/agentsrc/main/schemas/module-v1.json",
   "name": "jira-tickets-workflow",
   "description": "A workflow for implementing Jira tickets.",
-  "dependencies": []
+  "dependencies": [],
+  "files": [
+    "skills/jira-workflow/SKILL.md"
+  ]
 }

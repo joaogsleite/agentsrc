@@ -2,5 +2,9 @@
   "$schema": "https://raw.githubusercontent.com/joaogsleite/agentsrc/main/schemas/module-v1.json",
   "name": "memory-system",
   "description": "Session reporting and curated project documentation workflows.",
-  "dependencies": []
+  "dependencies": [],
+  "files": [
+    "rules/project-memory.md",
+    "skills/project-memory/SKILL.md"
+  ]
 }

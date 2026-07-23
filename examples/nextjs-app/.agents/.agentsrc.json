@@ -1,0 +1,19 @@
+{
+  "$schema": "https://raw.githubusercontent.com/joaogsleite/agentsrc/main/schemas/project-v1.json",
+  "formatVersion": 1,
+  "targets": [
+    "claude",
+    "codex",
+    "gemini",
+    "opencode"
+  ],
+  "modules": [
+    {
+      "name": "cloudflare-tunnel",
+      "source": {
+        "local": "../.."
+      },
+      "revision": "3006e0138cb027304c0f7b259733fe39fd2f7dab"
+    }
+  ]
+}

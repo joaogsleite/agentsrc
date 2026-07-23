@@ -77,7 +77,8 @@ modules/<module-name>/
   "$schema": "https://raw.githubusercontent.com/joaogsleite/agentsrc/main/schemas/module-v1.json",
   "name": "module-name",
   "description": "Focused workflow description.",
-  "dependencies": []
+  "dependencies": [],
+  "files": ["rules/example.md"]
 }
 ```
 
@@ -109,7 +110,7 @@ The CLI resolves first-party catalog modules from this repository's `modules/` d
 
 - `module add` resolves the full dependency closure before making changes.
 - Installation rejects payload collisions and reserved consumer-owned destinations.
-- Local module files are symlinked so source edits are immediately visible to the consumer.
+- Local module files are symlinked so source edits are immediately visible to the consumer, but add and update require a clean committed source worktree.
 - Downloaded and catalog modules are copied.
 - Add, update, and remove are transactional. Preserve that behavior when changing lifecycle code.
 - A consumer manifest records only the requested module; dependency payloads are installed with it and inferred from the dependency graph.

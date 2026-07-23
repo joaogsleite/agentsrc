@@ -9,8 +9,7 @@ export interface ModuleSource {
 export interface InstalledModule {
   name: string
   source?: ModuleSource
-  dependencies: string[]
-  files: string[]
+  revision: string
 }
 
 export interface ProjectManifest {
@@ -25,6 +24,7 @@ export interface ModuleManifest {
   name: string
   description: string
   dependencies: string[]
+  files: string[]
 }
 
 export interface McpServer {

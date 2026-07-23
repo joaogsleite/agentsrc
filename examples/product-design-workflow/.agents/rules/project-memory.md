@@ -1,1 +1,0 @@
-/Users/joaoleite/Developer/joaogsleite/agentsrc/modules/memory-system/rules/project-memory.md

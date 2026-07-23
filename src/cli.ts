@@ -103,13 +103,13 @@ export function createCli() {
       await writeManagedGitignore(process.cwd)
       console.log(`Installed ${name}`)
     })
-  cli.command("module list", "List installed modules")
+  cli.command("module list", "List installed modules and resolved dependencies")
     .action(async (_options, { console, process }) => {
       const project = await loadProject(process.cwd)
       if (project instanceof Error) { console.error(project.message); process.exit(1); return }
-      console.log(project.modules.length ? project.modules.map((module) => `${module.name}\t${module.files.length} files`).join("\n") : "No modules installed")
+      console.log(project.modules.length ? project.modules.map((module) => `${module.name}\t${module.revision ?? "legacy"}`).join("\n") : "No modules installed")
     })
-  cli.command("module remove <name>", "Remove a module when no installed module depends on it")
+  cli.command("module remove <name>", "Remove a module and unused dependencies")
     .action(async (name, _options, { console, process }) => {
       const result = await removeModule(process.cwd, name)
       if (result instanceof Error) { console.error(result.message); process.exit(1); return }

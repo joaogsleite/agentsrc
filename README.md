@@ -142,20 +142,19 @@ For local stdio servers with `transport.env`, agentsrc generates a target-local 
 
 ```json
 {
+  "$schema": "https://raw.githubusercontent.com/joaogsleite/agentsrc/main/schemas/project-v1.json",
   "formatVersion": 1,
   "targets": ["claude", "opencode"],
   "modules": [
     {
       "name": "memory-system",
-      "dependencies": [],
-      "files": [
-        "rules/project-memory.md",
-        "skills/project-memory/SKILL.md"
-      ]
+      "revision": "0123456789abcdef0123456789abcdef01234567"
     }
   ]
 }
 ```
+
+Module entries contain only their lowercase-hyphenated `name`, immutable Git `revision`, and, when applicable, the install `source` (`local` or `github`). Dependencies and payload paths remain in each pinned source `module.json`; agentsrc reconstructs that metadata from the recorded revision for safe updates and removal. No hidden module-state directory is created under `.agents/`.
 
 #### Modules
 
@@ -172,7 +171,7 @@ npm run agents -- module update memory-system
 npm run agents -- module remove memory-system
 ```
 
-Dependencies declared by a source module's `module.json` are installed with its payload but are inferred from the dependency graph rather than added as separate consumer manifest entries. Local sources install relative symlinks, so source edits are immediately visible in the consumer project. GitHub and first-party catalog sources install copied payloads. See [module authoring](docs/module-authoring.md) for the source layout and safety rules.
+Dependencies declared by a source module's `module.json` are resolved and recorded as pinned module entries with the requested module. This gives each installed payload an immutable owner and lets dependency changes remove stale files safely. Local sources install relative symlinks, but `module add` and `module update` require their source repository to have no uncommitted changes and record its current commit SHA. GitHub and first-party catalog sources install copied payloads and are pinned to their resolved commit SHA. See [module authoring](docs/module-authoring.md) for the source layout and safety rules.
 
 ## Generate And Check
 

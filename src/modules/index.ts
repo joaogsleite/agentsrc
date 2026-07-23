@@ -1,1 +1,1 @@
-export { addModule, removeModule, updateModule } from "./lifecycle.ts"
+export { addModule, installedModuleMetadata, removeModule, updateModule } from "./lifecycle.ts"

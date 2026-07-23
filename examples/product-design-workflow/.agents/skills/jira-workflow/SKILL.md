@@ -1,1 +1,0 @@
-../../../../../modules/jira-tickets-workflow/skills/jira-workflow/SKILL.md

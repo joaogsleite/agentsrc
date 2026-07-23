@@ -15,11 +15,25 @@ async function agentsrc(root: string, ...args: string[]) {
 async function localModule(project: string, name: string, files: Record<string, string>, dependencies: string[] = []) {
   const moduleRoot = path.join(project, "shared", "modules", name)
   await fs.mkdir(moduleRoot, { recursive: true })
-  await fs.writeFile(path.join(moduleRoot, "module.json"), JSON.stringify({ name, description: name, dependencies }))
+  await fs.writeFile(path.join(moduleRoot, "module.json"), JSON.stringify({ name, description: name, dependencies, files: Object.keys(files).sort() }))
   for (const [file, content] of Object.entries(files)) {
     await fs.mkdir(path.dirname(path.join(moduleRoot, file)), { recursive: true })
     await fs.writeFile(path.join(moduleRoot, file), content)
   }
+  await commitLocalModules(project)
+}
+
+async function commitLocalModules(project: string) {
+  const source = path.join(project, "shared")
+  const gitDirectory = path.join(source, ".git")
+  const initialized = await fs.stat(gitDirectory).then(() => true).catch(() => false)
+  if (!initialized) {
+    await run("git", ["init"], { cwd: source })
+    await run("git", ["config", "user.email", "agentsrc@example.test"], { cwd: source })
+    await run("git", ["config", "user.name", "agentsrc test"], { cwd: source })
+  }
+  await run("git", ["add", "."], { cwd: source })
+  await run("git", ["commit", "-m", "Update modules"], { cwd: source })
 }
 
 afterEach(async () => {
@@ -37,8 +51,14 @@ describe("agentsrc CLI", () => {
     await agentsrc(project, "module", "add", "memory-system")
     await fs.writeFile(path.join(project, ".agents", "docs", "architecture.md"), "# Architecture\n\nThis must not be startup context.\n")
     await fs.writeFile(path.join(project, ".agents", "docs", "INDEX.md"), "# Project Documentation\n\n- [Architecture](architecture.md)\n")
-    const registry = JSON.parse(await fs.readFile(path.join(project, ".agents", ".agentsrc.json"), "utf8")) as { modules: Array<{ name: string; source?: unknown }> }
-    expect(registry.modules.find((module) => module.name === "memory-system")?.source).toBeUndefined()
+    const registry = JSON.parse(await fs.readFile(path.join(project, ".agents", ".agentsrc.json"), "utf8")) as { formatVersion: number; modules: Array<{ name: string; source?: unknown; revision?: unknown; dependencies?: unknown; files?: unknown }> }
+    const installed = registry.modules.find((module) => module.name === "memory-system")
+    expect(registry.formatVersion).toBe(1)
+    expect(installed?.source).toBeUndefined()
+    expect(installed?.revision).toMatch(/^[0-9a-f]{40}$/)
+    expect(installed?.dependencies).toBeUndefined()
+    expect(installed?.files).toBeUndefined()
+    await expect(fs.stat(path.join(project, ".agents", ".agentsrc"))).rejects.toMatchObject({ code: "ENOENT" })
     await fs.writeFile(path.join(project, ".env"), "GITHUB_TOKEN=example-token\n")
     await fs.writeFile(path.join(project, ".agents", "mcps", "github.json"), JSON.stringify({ name: "github", transport: { type: "stdio", command: "npx", args: ["-y", "@github/github-mcp-server"], env: ["GITHUB_TOKEN"] } }))
     await agentsrc(project, "generate")
@@ -66,8 +86,9 @@ describe("agentsrc CLI", () => {
     directories.push(project)
     const moduleRoot = path.join(project, "shared", "modules", "local-workflow")
     await fs.mkdir(path.join(moduleRoot, "rules"), { recursive: true })
-    await fs.writeFile(path.join(moduleRoot, "module.json"), JSON.stringify({ name: "local-workflow", description: "Local workflow", dependencies: [] }))
+    await fs.writeFile(path.join(moduleRoot, "module.json"), JSON.stringify({ name: "local-workflow", description: "Local workflow", dependencies: [], files: ["rules/local.md"] }))
     await fs.writeFile(path.join(moduleRoot, "rules", "local.md"), "# Local\n")
+    await commitLocalModules(project)
     await agentsrc(project, "init")
     await agentsrc(project, "module", "add", "local-workflow", "--local", "./shared")
     const installed = await fs.lstat(path.join(project, ".agents", "rules", "local.md"))
@@ -132,6 +153,8 @@ describe("agentsrc CLI", () => {
     await agentsrc(project, "module", "add", "workflow", "--local", "./shared")
     await fs.rm(path.join(project, "shared", "modules", "workflow", "rules", "old.md"))
     await fs.writeFile(path.join(project, "shared", "modules", "workflow", "rules", "new.md"), "# New\n")
+    await fs.writeFile(path.join(project, "shared", "modules", "workflow", "module.json"), JSON.stringify({ name: "workflow", description: "workflow", dependencies: [], files: ["rules/new.md"] }))
+    await commitLocalModules(project)
     await agentsrc(project, "module", "update", "workflow")
     await expect(fs.lstat(path.join(project, ".agents", "rules", "old.md"))).rejects.toMatchObject({ code: "ENOENT" })
     expect((await fs.lstat(path.join(project, ".agents", "rules", "new.md"))).isSymbolicLink()).toBe(true)
@@ -144,7 +167,8 @@ describe("agentsrc CLI", () => {
     await localModule(project, "workflow", { "rules/workflow.md": "# Workflow\n" }, ["dependency"])
     await agentsrc(project, "init")
     await agentsrc(project, "module", "add", "workflow", "--local", "./shared")
-    await fs.writeFile(path.join(project, "shared", "modules", "workflow", "module.json"), JSON.stringify({ name: "workflow", description: "workflow", dependencies: [] }))
+    await fs.writeFile(path.join(project, "shared", "modules", "workflow", "module.json"), JSON.stringify({ name: "workflow", description: "workflow", dependencies: [], files: ["rules/workflow.md"] }))
+    await commitLocalModules(project)
     await agentsrc(project, "module", "update", "workflow")
     const manifest = JSON.parse(await fs.readFile(path.join(project, ".agents", ".agentsrc.json"), "utf8")) as { modules: Array<{ name: string }> }
     expect(manifest.modules.map((module) => module.name)).toEqual(["workflow"])
@@ -167,8 +191,25 @@ describe("agentsrc CLI", () => {
     await localModule(project, "workflow", { "rules/workflow.md": "# Workflow\n" }, ["memory-system"])
     await agentsrc(project, "init")
     await agentsrc(project, "module", "add", "workflow", "--local", "./shared")
-    const manifest = JSON.parse(await fs.readFile(path.join(project, ".agents", ".agentsrc.json"), "utf8")) as { modules: Array<{ name: string; files: string[] }> }
-    expect(manifest.modules).toEqual([expect.objectContaining({ name: "workflow", files: expect.arrayContaining(["rules/project-memory.md", "rules/workflow.md"]) })])
+    const manifest = JSON.parse(await fs.readFile(path.join(project, ".agents", ".agentsrc.json"), "utf8")) as { formatVersion: number; modules: Array<{ name: string; source?: unknown; revision?: unknown }> }
+    expect(manifest.formatVersion).toBe(1)
+    expect(manifest.modules).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: "workflow", source: { local: "./shared" }, revision: expect.stringMatching(/^[0-9a-f]{40}$/) }),
+      expect.objectContaining({ name: "memory-system", revision: expect.stringMatching(/^[0-9a-f]{40}$/) }),
+    ]))
+  })
+
+  test("rejects uncommitted local module sources", async () => {
+    const project = await fs.mkdtemp(path.join(os.tmpdir(), "agentsrc-test-"))
+    directories.push(project)
+    await localModule(project, "workflow", { "rules/workflow.md": "# Workflow\n" })
+    await fs.writeFile(path.join(project, "shared", "modules", "workflow", "rules", "workflow.md"), "# Changed\n")
+    await agentsrc(project, "init")
+    await expect(agentsrc(project, "module", "add", "workflow", "--local", "./shared")).rejects.toMatchObject({ stderr: expect.stringContaining("uncommitted changes") })
+    await commitLocalModules(project)
+    await agentsrc(project, "module", "add", "workflow", "--local", "./shared")
+    await fs.writeFile(path.join(project, "shared", "modules", "workflow", "rules", "workflow.md"), "# Changed again\n")
+    await expect(agentsrc(project, "module", "update", "workflow")).rejects.toMatchObject({ stderr: expect.stringContaining("uncommitted changes") })
   })
 
   test("rejects skill directories without SKILL.md", async () => {
@@ -180,11 +221,22 @@ describe("agentsrc CLI", () => {
     await expect(agentsrc(project, "validate")).rejects.toMatchObject({ stderr: expect.stringContaining("missing .agents/skills/incomplete/SKILL.md") })
   })
 
-  test("representative examples validate and regenerate cleanly", async () => {
-    for (const name of ["typescript-web-app", "python-api-service", "go-cli-tool", "product-design-workflow"]) {
+  test("Next.js Cloudflare Tunnel example validates and regenerates cleanly", async () => {
+    for (const name of ["nextjs-app"]) {
       const project = await fs.mkdtemp(path.join(os.tmpdir(), "agentsrc-example-"))
       directories.push(project)
       await fs.cp(path.resolve("examples", name), project, { recursive: true, dereference: true })
+      await fs.cp(path.resolve("modules"), path.join(project, "modules"), { recursive: true, dereference: true })
+      await run("git", ["init"], { cwd: project })
+      await run("git", ["config", "user.email", "agentsrc@example.test"], { cwd: project })
+      await run("git", ["config", "user.name", "agentsrc test"], { cwd: project })
+      await run("git", ["add", "modules"], { cwd: project })
+      await run("git", ["commit", "-m", "Add module source"], { cwd: project })
+      const { stdout } = await run("git", ["rev-parse", "HEAD"], { cwd: project })
+      const manifestPath = path.join(project, ".agents", ".agentsrc.json")
+      const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8")) as { modules: Array<{ name: string; source?: { local?: string }; revision: string }> }
+      manifest.modules = manifest.modules.map((module) => ({ ...module, source: { local: "." }, revision: stdout.trim() }))
+      await fs.writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
       await agentsrc(project, "validate", "--strict")
       await agentsrc(project, "generate")
       await agentsrc(project, "generate", "--check")

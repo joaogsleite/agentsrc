@@ -1,0 +1,21 @@
+# Next.js
+.next/
+node_modules/
+
+# Local environment files
+.env*
+!.env.example
+
+# BEGIN agentsrc generated
+.agents/sessions/
+.agents/state/
+.claude/
+.codex/
+.gemini/
+.opencode/
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+opencode.json
+.mcp.json
+# END agentsrc generated
