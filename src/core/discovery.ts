@@ -89,7 +89,7 @@ export function renderInstructions(_project: CanonicalProject, target?: TargetNa
     "",
     "When changing agentsrc-managed configuration, first read " + rule + " and " + skill + ".",
     "",
-    "Keep durable project documentation in `.agents/docs/`, session reports in `.agents/sessions/`, and temporary scratch state in `.agents/state/`. Do not create agent runtime data in generated target directories or the repository root.",
+    "Keep durable project documentation in `.agents/docs/`, user-facing generated artifacts in `.agents/artifacts/`, and temporary or module-specific state in `.agents/state/`. Do not create agent runtime data in generated target directories or the repository root.",
   ]
   return `${sections.join("\n").trim()}\n`
 }

@@ -32,14 +32,14 @@ examples/                representative initialized consumer projects
 .agents/
   .agentsrc.json         Project manifest: targets and installed modules
   agents/                Specialized agent definitions
+  artifacts/             Ignored user-facing generated output
   commands/              Reusable command prompts
   config/                Tracked, durable non-secret configuration
   docs/                  Tracked project knowledge and INDEX.md
   mcps/                  Portable MCP fragments
   rules/                 Always-applicable instructions
-  sessions/              Ignored append-only session reports
   skills/                On-demand workflows
-  state/                 Ignored ephemeral runtime state
+  state/                 Ignored temporary and module-specific state
 ```
 
 Generated target folders and root instruction files are disposable projections. Consumer agents must edit `.agents/`, then run `agentsrc validate --strict` and `agentsrc generate`; they must not manually edit `.claude/`, `.codex/`, `.gemini/`, `.opencode/`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `opencode.json`, or `.mcp.json`.
@@ -50,12 +50,12 @@ Respect these boundaries whenever writing a skill or adding CLI behavior:
 
 - `.agents/config/` is tracked shared configuration. Store durable, non-secret project values only.
 - `.agents/docs/` is tracked curated documentation. `INDEX.md` is the durable entry point.
-- `.agents/sessions/` is ignored, append-only session reporting.
-- `.agents/state/` is ignored runtime data: PIDs, temporary ports, logs, lock files, temporary wrappers, and process state belong here.
-- Secrets never belong in `.agents/config/`, `.agents/docs/`, `.agents/sessions/`, `.agents/state/`, generated configuration, or module payloads. Reference environment-variable names or an existing secret-manager integration instead.
+- `.agents/artifacts/` is ignored user-facing generated output: screenshots, reports, exports, and other deliverables belong here.
+- `.agents/state/` is ignored temporary and module-specific state: PIDs, temporary ports, logs, lock files, temporary wrappers, process state, and module-scoped entries belong here.
+- Secrets never belong in `.agents/artifacts/`, `.agents/config/`, `.agents/docs/`, `.agents/state/`, generated configuration, or module payloads. Reference environment-variable names or an existing secret-manager integration instead.
 - Do not create runtime data in repository roots or generated target directories.
 
-`init` owns the generated `.gitignore` block. Keep `.agents/sessions/` and `.agents/state/` ignored while leaving `.agents/config/` tracked.
+`init` owns the generated `.gitignore` block. Keep `.agents/artifacts/` and `.agents/state/` ignored while leaving `.agents/config/` tracked.
 
 ## Module Authoring
 
@@ -85,10 +85,10 @@ modules/<module-name>/
 Module rules:
 
 - Use lowercase hyphenated names for module names and manifest dependencies.
-- Every payload path installs to the same relative path below `.agents/`.
+- Every payload path must install below a canonical module directory: `agents/`, `commands/`, `mcps/`, `rules/`, or `skills/`. Do not create arbitrary top-level `.agents/` directories.
 - Do not add install hooks, adapter code, package dependencies, or automatic executable setup.
-- Never include `.agentsrc.json`, `config/`, `docs/`, `sessions/`, or `state/` in a module payload. Those destinations are owned by the consumer project at runtime.
-- A module skill may instruct an agent to create or update consumer-owned `.agents/config/` or `.agents/state/` files when the user explicitly invokes that workflow; the module source itself must not ship those files.
+- Never include `.agentsrc.json`, `artifacts/`, `config/`, `docs/`, or `state/` in a module payload. Those destinations are owned by the consumer project at runtime.
+- A module skill may instruct an agent to create or update consumer-owned `.agents/artifacts/`, `.agents/config/`, `.agents/docs/`, or `.agents/state/` files when the user explicitly invokes that workflow; the module source itself must not ship those files.
 - Keep modules portable. Local sources install as relative symlinks; catalog and GitHub sources install as copies.
 - Keep module-specific tests out of `src/`. Test the module manually in a temporary consumer project with `agentsrc module add`, `validate --strict`, `generate`, `module update`, and `module remove` when applicable.
 

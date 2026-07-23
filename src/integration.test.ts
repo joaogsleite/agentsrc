@@ -45,9 +45,10 @@ describe("agentsrc CLI", () => {
     const project = await fs.mkdtemp(path.join(os.tmpdir(), "agentsrc-test-"))
     directories.push(project)
     await agentsrc(project, "init", "--targets", "opencode")
+    expect((await fs.stat(path.join(project, ".agents", "artifacts"))).isDirectory()).toBe(true)
     expect((await fs.stat(path.join(project, ".agents", "config"))).isDirectory()).toBe(true)
     expect((await fs.stat(path.join(project, ".agents", "docs", "INDEX.md"))).isFile()).toBe(true)
-    expect((await fs.stat(path.join(project, ".agents", "sessions"))).isDirectory()).toBe(true)
+    await expect(fs.stat(path.join(project, ".agents", "sessions"))).rejects.toMatchObject({ code: "ENOENT" })
     await agentsrc(project, "module", "add", "memory-system")
     await fs.writeFile(path.join(project, ".agents", "docs", "architecture.md"), "# Architecture\n\nThis must not be startup context.\n")
     await fs.writeFile(path.join(project, ".agents", "docs", "INDEX.md"), "# Project Documentation\n\n- [Architecture](architecture.md)\n")
@@ -66,15 +67,18 @@ describe("agentsrc CLI", () => {
     const instructions = await fs.readFile(path.join(project, "AGENTS.md"), "utf8")
     const config = JSON.parse(await fs.readFile(path.join(project, "opencode.json"), "utf8")) as { instructions: string[] }
     const gitignore = await fs.readFile(path.join(project, ".gitignore"), "utf8")
+    const storageRule = await fs.readFile(path.join(project, ".agents", "rules", "agentsrc-storage.md"), "utf8")
     const wrapper = await fs.readFile(path.join(project, ".opencode", "agentsrc-mcps", "github.sh"), "utf8")
     expect(instructions).toContain("Read `.agents/docs/INDEX.md`")
     expect(instructions).toContain("Read every Markdown file under `.agents/rules/`")
     expect(instructions).not.toContain("This must not be startup context")
     expect(config.instructions).toEqual([".opencode/rules/agentsrc-source-of-truth.md", ".agents/rules/**/*.md", ".agents/docs/INDEX.md"])
     expect(gitignore).not.toContain(".agents/config/")
+    expect(gitignore).toContain(".agents/artifacts/")
+    expect(storageRule).toContain(".agents/artifacts/")
     expect((await fs.stat(path.join(project, ".opencode", "rules", "agentsrc-source-of-truth.md"))).isFile()).toBe(true)
     expect((await fs.stat(path.join(project, ".opencode", "skills", "manage-agentsrc", "SKILL.md"))).isFile()).toBe(true)
-    expect(gitignore).toContain(".agents/sessions/")
+    expect(gitignore).not.toContain(".agents/sessions/")
     expect(wrapper).toContain('. "$PROJECT_ROOT/.env"')
     expect(wrapper).not.toContain("example-token")
     await fs.appendFile(path.join(project, "AGENTS.md"), "drift\n")
@@ -122,12 +126,20 @@ describe("agentsrc CLI", () => {
     await expect(fs.lstat(path.join(project, ".agents", "rules", "dependency.md"))).rejects.toMatchObject({ code: "ENOENT" })
   })
 
-  test("reserves user-owned configuration paths from modules", async () => {
+  test("rejects module payloads outside canonical directories", async () => {
     const project = await fs.mkdtemp(path.join(os.tmpdir(), "agentsrc-test-"))
     directories.push(project)
-    await localModule(project, "workflow", { "config/tunnel.json": "{}\n" })
+    await localModule(project, "workflow", { "output/result.txt": "result\n" })
     await agentsrc(project, "init")
-    await expect(agentsrc(project, "module", "add", "workflow", "--local", "./shared")).rejects.toMatchObject({ stderr: expect.stringContaining("reserved destination") })
+    await expect(agentsrc(project, "module", "add", "workflow", "--local", "./shared")).rejects.toMatchObject({ stderr: expect.stringContaining("must be inside a canonical .agents directory") })
+  })
+
+  test("rejects legacy sessions directories", async () => {
+    const project = await fs.mkdtemp(path.join(os.tmpdir(), "agentsrc-test-"))
+    directories.push(project)
+    await agentsrc(project, "init")
+    await fs.mkdir(path.join(project, ".agents", "sessions"))
+    await expect(agentsrc(project, "validate")).rejects.toMatchObject({ stderr: expect.stringContaining("Legacy .agents/sessions is not supported") })
   })
 
   test("validates memory-system workflows across all targets", async () => {

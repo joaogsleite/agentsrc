@@ -6,7 +6,7 @@ Before making substantive project decisions, read `.agents/docs/INDEX.md` and lo
 
 ## Session Reports
 
-For each coding session that performs project work, create or update an append-only report in `.agents/sessions/`. Finalize it before the final response when possible. Use a date and concise topic in the filename, and include the session ID when available.
+For each coding session that performs project work, create or update an append-only report in `.agents/state/memory-system/`. Finalize it before the final response when possible. Use a date and concise topic in the filename, and include the session ID when available.
 
 Keep reports concise and useful for later consolidation:
 

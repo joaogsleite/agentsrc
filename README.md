@@ -46,6 +46,8 @@ Pin the Git dependency to a release tag or commit SHA when reproducibility matte
   .agentsrc.json                 # Selected targets and installed modules
   agents/
     <name>.md                     # Specialized agent definition
+  artifacts/                      # User-facing generated output, ignored by Git
+    <workflow>/<timestamp>/        # Screenshots, reports, exports, and other evidence
   commands/
     <name>.md                     # Reusable command prompt
   config/                         # Shared persistent agent configuration
@@ -56,8 +58,6 @@ Pin the Git dependency to a release tag or commit SHA when reproducibility matte
     <name>.json                   # One portable MCP server per JSON file
   rules/
     <name>.md                     # Always-applicable project instruction
-  sessions/                       # Append-only reports, ignored by Git
-    <date>-<topic>.md
   skills/
     <name>/
       SKILL.md                    # On-demand workflow entry point
@@ -65,10 +65,10 @@ Pin the Git dependency to a release tag or commit SHA when reproducibility matte
         <name>.md                 # Optional reference material
       scripts/
         <name>.sh                 # Optional supporting script
-  state/                          # Temporary scratch data, ignored by Git
+  state/                          # Temporary and module-specific state, ignored by Git
 ```
 
-`init` creates this layout, adds a storage rule, and owns the generated block in `.gitignore`. Project documentation belongs under `.agents/docs/`; session reports and scratch data belong under `.agents/`, not at the repository root or in generated target directories.
+`init` creates this layout, adds a storage rule, and owns the generated block in `.gitignore`. Project documentation, user-facing agent output, and scratch data belong under `.agents/`, not at the repository root or in generated target directories. `.agents/` has no general-purpose module folders: module payloads must use the canonical directories shown above, while runtime data belongs under the appropriate consumer-owned directory.
 
 `.agents/config/` is tracked shared configuration for durable agent-managed values, such as a stable tunnel domain. Do not store secrets there; use the project environment configuration for secret values.
 

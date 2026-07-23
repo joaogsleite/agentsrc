@@ -4,6 +4,7 @@ import path from "node:path"
 import { createRequire } from "node:module"
 import { goke } from "goke"
 import { z } from "zod"
+import { fail } from "./errors.ts"
 import { discover } from "./core/discovery.ts"
 import { agentsPath, exists, manifestPath, writeJson } from "./core/fs.ts"
 import { loadProject, writeManagedGitignore } from "./core/manifest.ts"
@@ -14,6 +15,11 @@ import { targetNames, type ModuleSource, type TargetName } from "./types.ts"
 
 const require = createRequire(import.meta.url)
 const packageJson = require("../package.json") as { version: string }
+const legacyStorageRules = [
+  "# agentsrc Storage\n\nStore durable project documentation in `.agents/docs/`, shared persistent agent configuration in `.agents/config/`, session reports in `.agents/sessions/`, and temporary scratch data in `.agents/state/`. Do not write agent runtime data to generated target directories or the repository root.\n",
+  "# agentsrc Storage\n\nStore durable project documentation in `.agents/docs/`, shared persistent agent configuration in `.agents/config/`, user-facing generated artifacts in `.agents/artifacts/`, session reports in `.agents/sessions/`, and temporary or module-specific state in `.agents/state/`. Do not write agent runtime data to generated target directories or the repository root.\n",
+]
+const storageRule = "# agentsrc Storage\n\nStore durable project documentation in `.agents/docs/`, shared persistent agent configuration in `.agents/config/`, user-facing generated artifacts in `.agents/artifacts/`, and temporary or module-specific state in `.agents/state/`. Do not write agent runtime data to generated target directories or the repository root.\n"
 
 function targets(value?: string): TargetName[] | Error {
   const selected = value ? value.split(",").filter(Boolean) : [...targetNames]
@@ -24,7 +30,7 @@ function targets(value?: string): TargetName[] | Error {
 async function initialize(root: string, selected: TargetName[]) {
   const agents = agentsPath(root)
   const result = await fs.mkdir(agents, { recursive: true }).then(async () => {
-    for (const directory of ["agents", "commands", "config", "docs", "mcps", "rules", "sessions", "skills", "state"]) await fs.mkdir(path.join(agents, directory), { recursive: true })
+    for (const directory of ["agents", "artifacts", "commands", "config", "docs", "mcps", "rules", "skills", "state"]) await fs.mkdir(path.join(agents, directory), { recursive: true })
   }).catch((error) => error as Error)
   if (result instanceof Error) return result
   if (!(await exists(manifestPath(root)))) {
@@ -34,7 +40,15 @@ async function initialize(root: string, selected: TargetName[]) {
   const index = path.join(agents, "docs", "INDEX.md")
   if (!(await exists(index))) await fs.writeFile(index, "# Project Documentation\n\nUse this index to navigate durable project knowledge. Add links to documentation that will help future coding sessions.\n")
   const rule = path.join(agents, "rules", "agentsrc-storage.md")
-  if (!(await exists(rule))) await fs.writeFile(rule, "# agentsrc Storage\n\nStore durable project documentation in `.agents/docs/`, shared persistent agent configuration in `.agents/config/`, session reports in `.agents/sessions/`, and temporary scratch data in `.agents/state/`. Do not write agent runtime data to generated target directories or the repository root.\n")
+  const currentRule = await fs.readFile(rule, "utf8").catch((cause: NodeJS.ErrnoException) => cause.code === "ENOENT" ? null : fail(`Cannot read ${rule}`, cause))
+  if (currentRule instanceof Error) return currentRule
+  if (currentRule === null || legacyStorageRules.includes(currentRule)) {
+    const written = await fs.writeFile(rule, storageRule).catch((cause) => fail(`Cannot write ${rule}`, cause))
+    if (written instanceof Error) return written
+  }
+  const sessions = path.join(agents, "sessions")
+  const removed = await fs.rmdir(sessions).then(() => true).catch((cause: NodeJS.ErrnoException) => cause.code === "ENOENT" || cause.code === "ENOTEMPTY" ? false : fail(`Cannot remove legacy ${sessions}`, cause))
+  if (removed instanceof Error) return removed
   return await writeManagedGitignore(root)
 }
 

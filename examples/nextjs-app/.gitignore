@@ -7,7 +7,7 @@ node_modules/
 !.env.example
 
 # BEGIN agentsrc generated
-.agents/sessions/
+.agents/artifacts/
 .agents/state/
 .claude/
 .codex/

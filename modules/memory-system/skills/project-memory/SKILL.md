@@ -1,5 +1,5 @@
 ---
-description: Curate `.agents/sessions/` into durable project documentation. Use only when the user asks to consolidate session reports or maintain project documentation.
+description: Curate `.agents/state/memory-system/` session reports into durable project documentation. Use only when the user asks to consolidate session reports or maintain project documentation.
 disable-model-invocation: true
 argument-hint: "consolidate [session paths or date range]"
 ---
@@ -12,7 +12,7 @@ Use this skill only for explicit documentation consolidation. Do not invoke it a
 
 When the user requests `/project-memory consolidate`, use the session paths or date range they provide. If they provide neither, ask which session reports to review rather than scanning an unbounded history.
 
-1. Read `.agents/docs/INDEX.md`, the selected session reports, and any relevant linked docs.
+1. Read `.agents/docs/INDEX.md`, the selected session reports in `.agents/state/memory-system/`, and any relevant linked docs.
 2. Group related signals across the reports: repeated patterns, recurring user feedback, shared failures, architectural relationships, decisions, and contradictions with existing docs.
 3. Treat a single report as insufficient unless it contains explicit user direction or a verified, high-impact decision. Promote cross-session patterns only when independent reports and current project evidence support them.
 4. Verify each proposed fact against current code, configuration, tests, or an explicit user instruction. Do not promote repeated assumptions or stale implementation details.

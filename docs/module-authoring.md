@@ -10,7 +10,9 @@ modules/release-workflow/
   skills/release/scripts/check.sh
 ```
 
-Every path except `module.json` installs to the same relative path beneath a client project's `.agents/` directory. Module payloads cannot write `.agents/.agentsrc.json`, `.agents/config/`, `.agents/docs/`, `.agents/sessions/`, or `.agents/state/`; those paths are user-owned project knowledge or runtime data.
+Every path except `module.json` installs to the same relative path beneath a client project's `.agents/` directory. A module payload must live below `agents/`, `commands/`, `mcps/`, `rules/`, or `skills/`; arbitrary top-level directories are rejected. Modules cannot ship user-owned files under `.agents/artifacts/`, `.agents/config/`, `.agents/docs/`, or `.agents/state/`.
+
+A module skill may create or update consumer-owned files in those directories only when the user explicitly invokes the workflow. Keep module-specific mutable data under `.agents/state/<module-name>/` and user-facing outputs under `.agents/artifacts/<workflow>/`.
 
 ```json
 {

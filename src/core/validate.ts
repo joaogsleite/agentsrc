@@ -1,7 +1,7 @@
 import fs from "node:fs/promises"
 import path from "node:path"
 import { fail } from "../errors.ts"
-import { agentsPath, inside, isSafeRelativePath } from "./fs.ts"
+import { agentsPath, inside, isModulePayloadPath, isSafeRelativePath } from "./fs.ts"
 import { loadProject, hasManagedGitignore } from "./manifest.ts"
 import { installedModuleMetadata } from "../modules/index.ts"
 import { discover } from "./discovery.ts"
@@ -32,6 +32,7 @@ export async function validateProject(root: string, strict = false): Promise<Val
   const moduleMetadata = await installedModuleMetadata(root, manifest)
   if (moduleMetadata instanceof Error) errors.push(moduleMetadata.message)
   if (!(await hasManagedGitignore(root))) errors.push("Missing or invalid agentsrc managed .gitignore block")
+  if (await fs.lstat(path.join(agentsPath(root), "sessions")).then(() => true).catch(() => false)) errors.push("Legacy .agents/sessions is not supported; move module data to .agents/state/<module-name>/ or user-facing output to .agents/artifacts/")
   errors.push(...await validateSkillLayout(root))
   const names = new Set<string>()
   for (const module of modules) {
@@ -42,7 +43,7 @@ export async function validateProject(root: string, strict = false): Promise<Val
     const state = moduleMetadata.get(module.name)
     if (!state) { errors.push(`Missing module metadata: ${module.name}`); continue }
     for (const file of state.files) {
-      if (!isSafeRelativePath(file) || file === ".agentsrc.json" || file.startsWith(".agentsrc/") || file.startsWith("config/") || file.startsWith("docs/") || file.startsWith("sessions/") || file.startsWith("state/")) errors.push(`Unsafe installed module path: ${module.name}/${file}`)
+      if (!isSafeRelativePath(file) || !isModulePayloadPath(file)) errors.push(`Module payload is outside a canonical .agents directory: ${module.name}/${file}`)
       const destination = path.join(agentsPath(root), file)
       const stat = await fs.lstat(destination).catch(() => null)
       if (!stat) errors.push(`Missing module file: .agents/${file}`)

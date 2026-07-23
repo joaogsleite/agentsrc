@@ -1,0 +1,9 @@
+{
+  "$schema": "https://raw.githubusercontent.com/joaogsleite/agentsrc/main/schemas/module-v1.json",
+  "name": "browser-testing",
+  "description": "Project-aware browser testing workflow using agent-browser.",
+  "dependencies": [],
+  "files": [
+    "skills/browser-testing/SKILL.md"
+  ]
+}

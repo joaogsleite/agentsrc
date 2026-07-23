@@ -10,6 +10,10 @@ export function isSafeRelativePath(value: string) {
   return value.length > 0 && !path.isAbsolute(value) && !value.split(/[\\/]/).includes("..")
 }
 
+export function isModulePayloadPath(value: string) {
+  return ["agents/", "commands/", "mcps/", "rules/", "skills/"].some((directory) => value.startsWith(directory))
+}
+
 export function inside(root: string, candidate: string) {
   const relative = path.relative(root, candidate)
   return relative === "" || (!relative.startsWith(`..${path.sep}`) && relative !== ".." && !path.isAbsolute(relative))

@@ -4,7 +4,7 @@ import path from "node:path"
 import { promisify } from "node:util"
 import { fileURLToPath } from "node:url"
 import * as errore from "errore"
-import { agentsPath, exists, isSafeRelativePath, listPayload, removeEmptyParents } from "../core/fs.ts"
+import { agentsPath, exists, isModulePayloadPath, isSafeRelativePath, listPayload, removeEmptyParents } from "../core/fs.ts"
 import { loadModule, loadProject, parseModule } from "../core/manifest.ts"
 import { fail } from "../errors.ts"
 import type { InstalledModule, ModuleManifest, ModuleSource, ProjectManifest } from "../types.ts"
@@ -167,7 +167,7 @@ async function payload(module: ResolvedModule): Promise<string[] | Error> {
   const files = [...new Set(module.manifest.files)].sort()
   if (files.length !== module.manifest.files.length || files.includes("module.json")) return fail(`Module ${module.manifest.name} has duplicate or invalid file declarations`)
   for (const file of files) {
-    if (!isSafeRelativePath(file) || file === ".agentsrc.json" || file.startsWith(".agentsrc/") || file.startsWith("config/") || file.startsWith("docs/") || file.startsWith("sessions/") || file.startsWith("state/")) return fail(`Module ${module.manifest.name} has reserved destination ${file}`)
+    if (!isSafeRelativePath(file) || !isModulePayloadPath(file)) return fail(`Module ${module.manifest.name} payload must be inside a canonical .agents directory: ${file}`)
   }
   const expected = actual.filter((file) => file !== "module.json")
   if (files.length !== expected.length || files.some((file, index) => file !== expected[index])) return fail(`Module ${module.manifest.name} files must list every payload path exactly`)
